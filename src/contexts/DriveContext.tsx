@@ -127,12 +127,20 @@ export function DriveProvider({ children }: { children: ReactNode }) {
 
   const checkTgStatus = async () => {
     try {
-      const res = await fetch('/api/tg/status');
+      const sessionString = localStorage.getItem('tgSession');
+      const res = await fetch('/api/tg/status', {
+        headers: sessionString ? { 'Authorization': `Bearer ${sessionString}` } : {}
+      });
       const data = await res.json();
       setIsTgLoggedIn(data.loggedIn);
       if (data.loggedIn) {
         setTgUser(data.user);
+        if (data.settings) {
+           updateSettings(data.settings, false); // false to avoid triggering save logic
+        }
         refreshTgFiles();
+      } else {
+        localStorage.removeItem('tgSession');
       }
     } catch (err) {
       console.error("Failed to check TG status", err);
@@ -141,7 +149,10 @@ export function DriveProvider({ children }: { children: ReactNode }) {
 
   const refreshTgFiles = async () => {
     try {
-      const res = await fetch('/api/tg/files');
+      const sessionString = localStorage.getItem('tgSession');
+      const res = await fetch('/api/tg/files', {
+        headers: sessionString ? { 'Authorization': `Bearer ${sessionString}` } : {}
+      });
       if (res.ok) {
         const data = await res.json();
         // Convert TG files type to DriveItem type
@@ -181,6 +192,10 @@ export function DriveProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ phone })
       });
       if (res.ok) {
+        const data = await res.json();
+        localStorage.setItem('tgPhone', data.phone);
+        localStorage.setItem('tgPhoneCodeHash', data.phoneCodeHash);
+        localStorage.setItem('tgTempSession', data.sessionString);
         setTgAuthStep('code');
         showToast("Code sent to your Telegram!");
       } else {
@@ -200,12 +215,21 @@ export function DriveProvider({ children }: { children: ReactNode }) {
       const res = await fetch('/api/tg/signin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code })
+        body: JSON.stringify({ 
+          code, 
+          phone: localStorage.getItem('tgPhone'), 
+          phoneCodeHash: localStorage.getItem('tgPhoneCodeHash'),
+          sessionString: localStorage.getItem('tgTempSession')
+        })
       });
       if (res.ok) {
         const data = await res.json();
         setIsTgLoggedIn(true);
         setTgUser(data.user);
+        localStorage.setItem('tgSession', data.sessionString);
+        localStorage.removeItem('tgPhone');
+        localStorage.removeItem('tgPhoneCodeHash');
+        localStorage.removeItem('tgTempSession');
         setTgAuthStep('none');
         showToast("Logged in successfully!");
         refreshTgFiles();
@@ -222,6 +246,7 @@ export function DriveProvider({ children }: { children: ReactNode }) {
 
   const logoutTg = async () => {
     await fetch('/api/tg/logout', { method: 'POST' });
+    localStorage.removeItem('tgSession');
     setIsTgLoggedIn(false);
     setTgUser(null);
     setItems([]);
@@ -245,7 +270,7 @@ export function DriveProvider({ children }: { children: ReactNode }) {
   const [isDeleteModalOpen, setDeleteModalOpen] = useState(false);
   const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
 
-  const updateSettings = (updates: Partial<{ showDeleteWarning: boolean, font: string, backgroundColor: string | null, uiTheme: string, mediaDownloadQuality: number }>) => {
+  const updateSettings = (updates: Partial<{ showDeleteWarning: boolean, font: string, backgroundColor: string | null, uiTheme: string, mediaDownloadQuality: number }>, syncRemote: boolean = true) => {
     setSettings(prev => {
       const newSettings = { ...prev, ...updates };
       if (updates.font) localStorage.setItem('font', updates.font);
@@ -260,6 +285,22 @@ export function DriveProvider({ children }: { children: ReactNode }) {
       if (updates.mediaDownloadQuality !== undefined) {
         localStorage.setItem('mediaDownloadQuality', updates.mediaDownloadQuality.toString());
       }
+      
+      // Sync to telegram
+      if (syncRemote) {
+         const sessionString = localStorage.getItem('tgSession');
+         if (sessionString) {
+            fetch('/api/tg/settings', {
+               method: 'POST',
+               headers: { 
+                 'Content-Type': 'application/json',
+                 'Authorization': `Bearer ${sessionString}` 
+               },
+               body: JSON.stringify({ settings: newSettings })
+            }).catch(e => console.error(e));
+         }
+      }
+      
       return newSettings;
     });
   };
@@ -421,8 +462,10 @@ export function DriveProvider({ children }: { children: ReactNode }) {
     showToast(`Uploading ${files.length} file(s) to Telegram...`);
     
     try {
+      const sessionString = localStorage.getItem('tgSession');
       const res = await fetch('/api/tg/upload', {
         method: 'POST',
+        headers: sessionString ? { 'Authorization': `Bearer ${sessionString}` } : {},
         body: formData
       });
       if (res.ok) {
@@ -459,14 +502,37 @@ export function DriveProvider({ children }: { children: ReactNode }) {
   };
 
   const emptyTrash = () => {
+    const itemsToDelete = items.filter(item => item.trashed);
     setItems(prev => prev.filter(item => !item.trashed));
     // Clear undo stack since they are permanently gone
     setTrashedItemsStack([]);
     setToastMessage('Trash emptied.');
+
+    if (isTgLoggedIn) {
+       const sessionString = localStorage.getItem('tgSession');
+       if (sessionString) {
+          itemsToDelete.forEach(item => {
+             // Avoid failing entire flow if one fails, but we should delete what we can.
+             fetch(`/api/tg/delete/${item.id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${sessionString}` }
+             }).catch(e => console.error(e));
+          });
+       }
+    }
   };
 
   const deletePermanently = (id: string) => {
     setItems(prev => prev.filter(item => item.id !== id));
+    if (isTgLoggedIn) {
+       const sessionString = localStorage.getItem('tgSession');
+       if (sessionString) {
+           fetch(`/api/tg/delete/${id}`, {
+               method: 'DELETE',
+               headers: { 'Authorization': `Bearer ${sessionString}` }
+           }).catch(e => console.error(e));
+       }
+    }
   };
 
   const renameItem = (id: string, newName: string) => {
@@ -492,7 +558,27 @@ export function DriveProvider({ children }: { children: ReactNode }) {
   const downloadItem = async (item: DriveItem) => {
     if (isTgLoggedIn) {
       showToast(`Downloading ${item.name} from Telegram...`);
-      window.location.href = `/api/tg/download/${item.id}`;
+      try {
+        const sessionString = localStorage.getItem('tgSession');
+        const res = await fetch(`/api/tg/download/${item.id}`, {
+           headers: sessionString ? { 'Authorization': `Bearer ${sessionString}` } : {}
+        });
+        if (res.ok) {
+           const blob = await res.blob();
+           const url = window.URL.createObjectURL(blob);
+           const link = document.createElement('a');
+           link.href = url;
+           link.download = item.name;
+           document.body.appendChild(link);
+           link.click();
+           document.body.removeChild(link);
+           window.URL.revokeObjectURL(url);
+        } else {
+           showToast("Download failed");
+        }
+      } catch(err) {
+        showToast("Network error during download");
+      }
       return;
     }
 
