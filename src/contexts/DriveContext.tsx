@@ -1,6 +1,23 @@
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  ReactNode,
+  useEffect,
+  useRef,
+} from "react";
 
-export type FileType = 'folder' | 'image' | 'document' | 'spreadsheet' | 'presentation' | 'pdf' | 'archive' | 'video' | 'audio' | 'unknown';
+export type FileType =
+  | "folder"
+  | "image"
+  | "document"
+  | "spreadsheet"
+  | "presentation"
+  | "pdf"
+  | "archive"
+  | "video"
+  | "audio"
+  | "unknown";
 
 export interface DriveItem {
   id: string;
@@ -16,6 +33,7 @@ export interface DriveItem {
   color?: string; // For folders
   starred?: boolean;
   trashed?: boolean;
+  spam?: boolean;
   location?: string;
   parentId?: string | null;
 }
@@ -48,8 +66,8 @@ interface DriveContextType {
   toggleSelection: (id: string) => void;
   clearSelection: () => void;
   // Theme
-  theme: 'light' | 'dark' | 'system';
-  setTheme: (theme: 'light' | 'dark' | 'system') => void;
+  theme: "light" | "dark" | "system";
+  setTheme: (theme: "light" | "dark" | "system") => void;
   toggleTheme: () => void;
   // Settings
   settings: {
@@ -59,7 +77,15 @@ interface DriveContextType {
     uiTheme: string;
     mediaDownloadQuality: number;
   };
-  updateSettings: (updates: Partial<{ showDeleteWarning: boolean, font: string, backgroundColor: string | null, uiTheme: string, mediaDownloadQuality: number }>) => void;
+  updateSettings: (
+    updates: Partial<{
+      showDeleteWarning: boolean;
+      font: string;
+      backgroundColor: string | null;
+      uiTheme: string;
+      mediaDownloadQuality: number;
+    }>,
+  ) => void;
   resetSettings: () => void;
   // Deletion
   batchMoveToTrash: (ids: string[]) => void;
@@ -78,47 +104,83 @@ interface DriveContextType {
   // telegram
   isTgLoggedIn: boolean;
   tgUser: any | null;
-  tgAuthStep: 'phone' | 'code' | 'none';
-  setTgAuthStep: (step: 'phone' | 'code' | 'none') => void;
+  tgAuthStep: "phone" | "code" | "none";
+  setTgAuthStep: (step: "phone" | "code" | "none") => void;
   sendTgCode: (phone: string) => Promise<void>;
   signInTg: (code: string) => Promise<void>;
   logoutTg: () => Promise<void>;
 }
 
-const initialItems: DriveItem[] = [
-  { id: 'f1', name: 'Work Documents', type: 'folder', isFolder: true, modified: '2:30 PM', created: '10 Jan 2026', owner: 'me', shared: false, location: 'My Drive', parentId: null },
-  { id: 'f2', name: 'Personal Photos', type: 'folder', isFolder: true, modified: 'Yesterday', created: '15 Feb 2026', owner: 'me', shared: true, location: 'My Drive', parentId: null },
-  { id: 'f3', name: 'Design Assets', type: 'folder', isFolder: true, modified: 'May 1', created: '20 Mar 2026', owner: 'me', shared: false, location: 'My Drive', parentId: null },
-  { id: 'f4', name: 'Invoices 2026', type: 'folder', isFolder: true, modified: 'Apr 28', created: '5 Apr 2026', owner: 'me', shared: false, location: 'My Drive', starred: true, parentId: null },
-  
-  { id: 'd1', name: 'Q2_Financial_Report.pdf', type: 'pdf', isFolder: false, modified: '8:30 AM', created: '2 May 2026', owner: 'me', size: '3.24 MB', location: 'My Drive > Work Documents', parentId: 'f1' },
-  { id: 'd2', name: 'Project_Alpha_Brief.docx', type: 'document', isFolder: false, modified: 'Yesterday', created: '1 May 2026', owner: 'Sarah', size: '1.5 MB', shared: true, location: 'Shared with me' },
-  { id: 'd3', name: 'User_Metrics_August.xlsx', type: 'spreadsheet', isFolder: false, modified: 'Apr 25', created: '20 Apr 2026', owner: 'me', size: '4.8 MB', location: 'My Drive', starred: true },
-  { id: 'demo-1', name: 'macos-theme-for-windows-11.png', type: 'image', isFolder: false, modified: 'Just now', created: '2 May 2026', owner: 'me', size: '2.4 MB', imageUrl: '/macos-theme-for-windows-11-24h2-v0-1z04qks1x9xd1.png', location: 'My Drive', starred: true },
-  { id: 'd4', name: 'Q3_Brand_Assets.png', type: 'image', isFolder: false, modified: 'Apr 24', created: '15 Apr 2026', owner: 'me', size: '12 MB', imageUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop', location: 'My Drive > Design Assets' },
-  { id: 'd5', name: 'All-Hands_Deck.pptx', type: 'presentation', isFolder: false, modified: 'Apr 20', created: '10 Apr 2026', owner: 'Mike', size: '25 MB', location: 'Shared with me' },
-];
+const initialItems: DriveItem[] = [];
 
 const DriveContext = createContext<DriveContextType | undefined>(undefined);
 
 export function DriveProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<DriveItem[]>(initialItems);
+
+  const syncVfs = (newItems: DriveItem[], isUpdate = true) => {
+    if (!isUpdate) return;
+    const sessionString = localStorage.getItem("tgSession");
+    if (!sessionString) return;
+
+    const vfsState = newItems.map((i) => ({
+      id: i.id,
+      name: i.name,
+      isFolder: i.isFolder,
+      parentId: i.parentId,
+      color: i.color,
+      starred: i.starred,
+      type: i.type,
+      size: i.size,
+      modified: i.modified,
+    }));
+
+    fetch("/api/tg/vfs", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${sessionString}`,
+      },
+      body: JSON.stringify({ vfs: vfsState }),
+    }).catch((e) => console.error("VFS sync failed", e));
+  };
+
+  const updateItems = (
+    updater: DriveItem[] | ((prev: DriveItem[]) => DriveItem[]),
+  ) => {
+    setItems((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      syncVfs(next);
+      return next;
+    });
+  };
+
   const [trashedItemsStack, setTrashedItemsStack] = useState<DriveItem[]>([]);
   const [infoItem, setInfoItem] = useState<DriveItem | null>(null);
   const [mediaItem, setMediaItem] = useState<DriveItem | null>(null);
   const [renamingItem, setRenamingItem] = useState<DriveItem | null>(null);
   const [movingItem, setMovingItem] = useState<DriveItem | null>(null);
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState<string>('home');
-  const [navigationHistory, setNavigationHistory] = useState<{page: string, folderId: string | null}[]>([]);
+  const currentFolderIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    currentFolderIdRef.current = currentFolderId;
+  }, [currentFolderId]);
+
+  const [currentPage, setCurrentPage] = useState<string>("home");
+  const [navigationHistory, setNavigationHistory] = useState<
+    { page: string; folderId: string | null }[]
+  >([]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isFeatureShowcaseOpen, setIsFeatureShowcaseOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  
+
   // Telegram State
   const [isTgLoggedIn, setIsTgLoggedIn] = useState(false);
   const [tgUser, setTgUser] = useState<any | null>(null);
-  const [tgAuthStep, setTgAuthStep] = useState<'phone' | 'code' | 'none'>('none');
+  const [tgAuthStep, setTgAuthStep] = useState<"phone" | "code" | "none">(
+    "none",
+  );
   const [tgLoading, setTgLoading] = useState(false);
 
   useEffect(() => {
@@ -127,44 +189,108 @@ export function DriveProvider({ children }: { children: ReactNode }) {
 
   const checkTgStatus = async () => {
     try {
-      const sessionString = localStorage.getItem('tgSession');
-      const res = await fetch('/api/tg/status', {
-        headers: sessionString ? { 'Authorization': `Bearer ${sessionString}` } : {}
+      const sessionString = localStorage.getItem("tgSession");
+      const res = await fetch("/api/tg/status", {
+        headers: sessionString
+          ? { Authorization: `Bearer ${sessionString}` }
+          : {},
       });
       const data = await res.json();
       setIsTgLoggedIn(data.loggedIn);
       if (data.loggedIn) {
         setTgUser(data.user);
         if (data.settings) {
-           updateSettings(data.settings, false); // false to avoid triggering save logic
+          updateSettings(data.settings, false); // false to avoid triggering save logic
         }
         refreshTgFiles();
       } else {
-        localStorage.removeItem('tgSession');
+        localStorage.removeItem("tgSession");
       }
     } catch (err) {
       console.error("Failed to check TG status", err);
     }
   };
 
-  const refreshTgFiles = async () => {
+  const refreshTgFiles = async (skipVfsFetch = false) => {
     try {
-      const sessionString = localStorage.getItem('tgSession');
-      const res = await fetch('/api/tg/files', {
-        headers: sessionString ? { 'Authorization': `Bearer ${sessionString}` } : {}
+      const sessionString = localStorage.getItem("tgSession");
+
+      const filesRes = await fetch("/api/tg/files", {
+        headers: sessionString
+          ? { Authorization: `Bearer ${sessionString}` }
+          : {},
       });
-      if (res.ok) {
-        const data = await res.json();
+
+      let vfsRes = null;
+      if (!skipVfsFetch) {
+        vfsRes = await fetch("/api/tg/vfs", {
+          headers: sessionString
+            ? { Authorization: `Bearer ${sessionString}` }
+            : {},
+        });
+      }
+
+      if (filesRes.ok) {
+        const data = await filesRes.json();
         // Convert TG files type to DriveItem type
         const tgItems: DriveItem[] = data.map((f: any) => ({
           ...f,
           modified: new Date(f.date).toLocaleDateString(),
-          owner: 'me',
-          location: 'My Drive',
+          owner: "me",
+          location: "My Drive",
           parentId: null,
-          type: mapMimeToType(f.type)
+          trashed: f.status === "trash",
+          spam: f.status === "spam",
+          type: mapMimeToType(f.type),
         }));
-        setItems(tgItems);
+
+        let storedVfs: DriveItem[] = [];
+        if (!skipVfsFetch && vfsRes && vfsRes.ok) {
+          const vData = await vfsRes.json();
+          if (vData.vfs) storedVfs = vData.vfs;
+        } else if (skipVfsFetch) {
+          // fallback to current items array as VFS source of truth
+          storedVfs = items;
+        }
+
+        const folders = storedVfs.filter((i) => i.isFolder);
+        const finalItems = [...folders];
+
+        const vfsFilesMap = new Map();
+        storedVfs
+          .filter((i) => !i.isFolder)
+          .forEach((i) => vfsFilesMap.set(i.id, i));
+
+        let hasChanges = false;
+        tgItems.forEach((tgFile) => {
+          if (vfsFilesMap.has(tgFile.id)) {
+            const saved = vfsFilesMap.get(tgFile.id);
+            const getPath = (pId: string | null): string => {
+              if (!pId) return "My Drive";
+              const p = folders.find(f => f.id === pId);
+              return p ? `My Drive > ${p.name}` : "My Drive";
+            };
+
+            finalItems.push({
+              ...tgFile,
+              parentId: saved.parentId,
+              starred: saved.starred,
+              color: saved.color,
+              name: saved.name || tgFile.name,
+              location: getPath(saved.parentId),
+            });
+          } else {
+            // new file not in VFS
+            finalItems.push(tgFile);
+            hasChanges = true;
+          }
+        });
+
+        setItems(finalItems);
+        // Sync the merged final outcome back so that newly fetched tg items get added to VFS immediately
+        if (hasChanges && finalItems.length > 0) {
+          syncVfs(finalItems, true);
+        }
       }
     } catch (err) {
       console.error("Failed to fetch TG files", err);
@@ -172,31 +298,51 @@ export function DriveProvider({ children }: { children: ReactNode }) {
   };
 
   const mapMimeToType = (mime: string): FileType => {
-    if (mime.includes('image')) return 'image';
-    if (mime.includes('video')) return 'video';
-    if (mime.includes('audio')) return 'audio';
-    if (mime.includes('pdf')) return 'pdf';
-    if (mime.includes('msword') || mime.includes('officedocument.word') || mime.includes('document')) return 'document';
-    if (mime.includes('excel') || mime.includes('officedocument.spreadsheet') || mime.includes('sheet')) return 'spreadsheet';
-    if (mime.includes('powerpoint') || mime.includes('officedocument.presentation') || mime.includes('presentation')) return 'presentation';
-    if (mime.includes('zip') || mime.includes('rar') || mime.includes('compressed')) return 'archive';
-    return 'unknown';
+    if (mime.includes("image")) return "image";
+    if (mime.includes("video")) return "video";
+    if (mime.includes("audio")) return "audio";
+    if (mime.includes("pdf")) return "pdf";
+    if (
+      mime.includes("msword") ||
+      mime.includes("officedocument.word") ||
+      mime.includes("document")
+    )
+      return "document";
+    if (
+      mime.includes("excel") ||
+      mime.includes("officedocument.spreadsheet") ||
+      mime.includes("sheet")
+    )
+      return "spreadsheet";
+    if (
+      mime.includes("powerpoint") ||
+      mime.includes("officedocument.presentation") ||
+      mime.includes("presentation")
+    )
+      return "presentation";
+    if (
+      mime.includes("zip") ||
+      mime.includes("rar") ||
+      mime.includes("compressed")
+    )
+      return "archive";
+    return "unknown";
   };
 
   const sendTgCode = async (phone: string) => {
     setTgLoading(true);
     try {
-      const res = await fetch('/api/tg/send-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone })
+      const res = await fetch("/api/tg/send-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone }),
       });
       if (res.ok) {
         const data = await res.json();
-        localStorage.setItem('tgPhone', data.phone);
-        localStorage.setItem('tgPhoneCodeHash', data.phoneCodeHash);
-        localStorage.setItem('tgTempSession', data.sessionString);
-        setTgAuthStep('code');
+        localStorage.setItem("tgPhone", data.phone);
+        localStorage.setItem("tgPhoneCodeHash", data.phoneCodeHash);
+        localStorage.setItem("tgTempSession", data.sessionString);
+        setTgAuthStep("code");
         showToast("Code sent to your Telegram!");
       } else {
         const err = await res.json();
@@ -212,25 +358,25 @@ export function DriveProvider({ children }: { children: ReactNode }) {
   const signInTg = async (code: string) => {
     setTgLoading(true);
     try {
-      const res = await fetch('/api/tg/signin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          code, 
-          phone: localStorage.getItem('tgPhone'), 
-          phoneCodeHash: localStorage.getItem('tgPhoneCodeHash'),
-          sessionString: localStorage.getItem('tgTempSession')
-        })
+      const res = await fetch("/api/tg/signin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code,
+          phone: localStorage.getItem("tgPhone"),
+          phoneCodeHash: localStorage.getItem("tgPhoneCodeHash"),
+          sessionString: localStorage.getItem("tgTempSession"),
+        }),
       });
       if (res.ok) {
         const data = await res.json();
         setIsTgLoggedIn(true);
         setTgUser(data.user);
-        localStorage.setItem('tgSession', data.sessionString);
-        localStorage.removeItem('tgPhone');
-        localStorage.removeItem('tgPhoneCodeHash');
-        localStorage.removeItem('tgTempSession');
-        setTgAuthStep('none');
+        localStorage.setItem("tgSession", data.sessionString);
+        localStorage.removeItem("tgPhone");
+        localStorage.removeItem("tgPhoneCodeHash");
+        localStorage.removeItem("tgTempSession");
+        setTgAuthStep("none");
         showToast("Logged in successfully!");
         refreshTgFiles();
       } else {
@@ -245,91 +391,110 @@ export function DriveProvider({ children }: { children: ReactNode }) {
   };
 
   const logoutTg = async () => {
-    await fetch('/api/tg/logout', { method: 'POST' });
-    localStorage.removeItem('tgSession');
+    const sessionString = localStorage.getItem("tgSession");
+    if (sessionString) {
+      await fetch("/api/tg/logout", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${sessionString}` },
+      }).catch(console.error);
+    }
+    localStorage.removeItem("tgSession");
     setIsTgLoggedIn(false);
     setTgUser(null);
     setItems([]);
     showToast("Logged out from Telegram");
   };
-  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('theme');
-      if (saved === 'dark' || saved === 'light' || saved === 'system') return saved as 'light' | 'dark' | 'system';
-      return 'system';
+  const [theme, setTheme] = useState<"light" | "dark" | "system">(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("theme");
+      if (saved === "dark" || saved === "light" || saved === "system")
+        return saved as "light" | "dark" | "system";
+      return "system";
     }
-    return 'system';
+    return "system";
   });
   const [settings, setSettings] = useState({
     showDeleteWarning: true,
-    font: localStorage.getItem('font') || 'Default',
-    backgroundColor: localStorage.getItem('backgroundColor') || null,
-    uiTheme: localStorage.getItem('uiTheme') || 'Standard',
-    mediaDownloadQuality: parseInt(localStorage.getItem('mediaDownloadQuality') || '100')
+    font: localStorage.getItem("font") || "Default",
+    backgroundColor: localStorage.getItem("backgroundColor") || null,
+    uiTheme: localStorage.getItem("uiTheme") || "Standard",
+    mediaDownloadQuality: parseInt(
+      localStorage.getItem("mediaDownloadQuality") || "100",
+    ),
   });
   const [isDeleteModalOpen, setDeleteModalOpen] = useState(false);
   const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
 
-  const updateSettings = (updates: Partial<{ showDeleteWarning: boolean, font: string, backgroundColor: string | null, uiTheme: string, mediaDownloadQuality: number }>, syncRemote: boolean = true) => {
-    setSettings(prev => {
+  const updateSettings = (
+    updates: Partial<{
+      showDeleteWarning: boolean;
+      font: string;
+      backgroundColor: string | null;
+      uiTheme: string;
+      mediaDownloadQuality: number;
+    }>,
+    syncRemote: boolean = true,
+  ) => {
+    setSettings((prev) => {
       const newSettings = { ...prev, ...updates };
-      if (updates.font) localStorage.setItem('font', updates.font);
-      if (updates.uiTheme) localStorage.setItem('uiTheme', updates.uiTheme);
+      if (updates.font) localStorage.setItem("font", updates.font);
+      if (updates.uiTheme) localStorage.setItem("uiTheme", updates.uiTheme);
       if (updates.backgroundColor !== undefined) {
         if (updates.backgroundColor === null) {
-          localStorage.removeItem('backgroundColor');
+          localStorage.removeItem("backgroundColor");
         } else {
-          localStorage.setItem('backgroundColor', updates.backgroundColor);
+          localStorage.setItem("backgroundColor", updates.backgroundColor);
         }
       }
       if (updates.mediaDownloadQuality !== undefined) {
-        localStorage.setItem('mediaDownloadQuality', updates.mediaDownloadQuality.toString());
+        localStorage.setItem(
+          "mediaDownloadQuality",
+          updates.mediaDownloadQuality.toString(),
+        );
       }
-      
+
       // Sync to telegram
       if (syncRemote) {
-         const sessionString = localStorage.getItem('tgSession');
-         if (sessionString) {
-            fetch('/api/tg/settings', {
-               method: 'POST',
-               headers: { 
-                 'Content-Type': 'application/json',
-                 'Authorization': `Bearer ${sessionString}` 
-               },
-               body: JSON.stringify({ settings: newSettings })
-            }).catch(e => console.error(e));
-         }
+        const sessionString = localStorage.getItem("tgSession");
+        if (sessionString) {
+          fetch("/api/tg/settings", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${sessionString}`,
+            },
+            body: JSON.stringify({ settings: newSettings }),
+          }).catch((e) => console.error(e));
+        }
       }
-      
+
       return newSettings;
     });
   };
 
   const resetSettings = () => {
-    setTheme('system');
-    localStorage.removeItem('theme');
-    
+    setTheme("system");
+    localStorage.removeItem("theme");
+
     setSettings({
       showDeleteWarning: true,
-      font: 'Default',
+      font: "Default",
       backgroundColor: null,
-      uiTheme: 'Standard',
-      mediaDownloadQuality: 100
+      uiTheme: "Standard",
+      mediaDownloadQuality: 100,
     });
-    
-    localStorage.removeItem('font');
-    localStorage.removeItem('backgroundColor');
-    localStorage.removeItem('uiTheme');
-    localStorage.removeItem('mediaDownloadQuality');
-    
-    showToast('All settings reset to default');
+
+    localStorage.removeItem("font");
+    localStorage.removeItem("backgroundColor");
+    localStorage.removeItem("uiTheme");
+    localStorage.removeItem("mediaDownloadQuality");
+
+    showToast("All settings reset to default");
   };
 
   const toggleSelection = (id: string) => {
-    setSelectedIds(prev => 
-      prev.includes(id) 
-        ? prev.filter(i => i !== id) 
-        : [...prev, id]
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id],
     );
   };
 
@@ -338,38 +503,41 @@ export function DriveProvider({ children }: { children: ReactNode }) {
   };
 
   const toggleTheme = () => {
-    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+    setTheme((prev) => (prev === "light" ? "dark" : "light"));
   };
 
   useEffect(() => {
     const root = window.document.documentElement;
-    
-    const applyTheme = (currentTheme: 'light' | 'dark' | 'system') => {
-      let effectiveTheme: 'light' | 'dark' = 'light';
-      
-      if (currentTheme === 'system') {
-        effectiveTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+
+    const applyTheme = (currentTheme: "light" | "dark" | "system") => {
+      let effectiveTheme: "light" | "dark" = "light";
+
+      if (currentTheme === "system") {
+        effectiveTheme = window.matchMedia("(prefers-color-scheme: dark)")
+          .matches
+          ? "dark"
+          : "light";
       } else {
         effectiveTheme = currentTheme;
       }
-      
-      root.classList.remove('light', 'dark');
+
+      root.classList.remove("light", "dark");
       root.classList.add(effectiveTheme);
     };
 
     applyTheme(theme);
-    localStorage.setItem('theme', theme);
+    localStorage.setItem("theme", theme);
 
     // Listen for system theme changes if in 'system' mode
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
     const handleChange = () => {
-      if (theme === 'system') {
-        applyTheme('system');
+      if (theme === "system") {
+        applyTheme("system");
       }
     };
 
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
   }, [theme]);
 
   const batchMoveToTrash = (ids: string[]) => {
@@ -391,13 +559,19 @@ export function DriveProvider({ children }: { children: ReactNode }) {
   };
 
   const performBatchMoveToTrash = (ids: string[]) => {
-    const itemsToTrash = items.filter(item => ids.includes(item.id));
+    const itemsToTrash = items.filter((item) => ids.includes(item.id));
     if (itemsToTrash.length === 0) return;
-    
-    setItems(prev => prev.map(item => ids.includes(item.id) ? { ...item, trashed: true } : item));
-    setTrashedItemsStack(prev => [...prev, ...itemsToTrash]);
-    setSelectedIds(prev => prev.filter(id => !ids.includes(id)));
-    setToastMessage(`${itemsToTrash.length} ${itemsToTrash.length === 1 ? 'item' : 'items'} moved to trash.`);
+
+    updateItems((prev) =>
+      prev.map((item) =>
+        ids.includes(item.id) ? { ...item, trashed: true } : item,
+      ),
+    );
+    setTrashedItemsStack((prev) => [...prev, ...itemsToTrash]);
+    setSelectedIds((prev) => prev.filter((id) => !ids.includes(id)));
+    setToastMessage(
+      `${itemsToTrash.length} ${itemsToTrash.length === 1 ? "item" : "items"} moved to trash.`,
+    );
   };
 
   const showToast = (msg: string) => {
@@ -407,7 +581,10 @@ export function DriveProvider({ children }: { children: ReactNode }) {
 
   const updatePageAndHistory = (page: string) => {
     // Before moving to new page, save current state to history
-    setNavigationHistory(prev => [...prev, { page: currentPage, folderId: currentFolderId }]);
+    setNavigationHistory((prev) => [
+      ...prev,
+      { page: currentPage, folderId: currentFolderId },
+    ]);
     setCurrentPage(page);
     setCurrentFolderId(null); // When switching main pages, clear current folder
   };
@@ -416,135 +593,219 @@ export function DriveProvider({ children }: { children: ReactNode }) {
     if (navigationHistory.length === 0) {
       if (currentFolderId) {
         setCurrentFolderId(null);
-      } else if (currentPage !== 'home') {
-        setCurrentPage('home');
+      } else if (currentPage !== "home") {
+        setCurrentPage("home");
       }
       return;
-    };
-    
+    }
+
     const prev = navigationHistory[navigationHistory.length - 1];
     setCurrentPage(prev.page);
     setCurrentFolderId(prev.folderId);
-    setNavigationHistory(prev => prev.slice(0, -1));
+    setNavigationHistory((prev) => prev.slice(0, -1));
   };
 
   const createFolder = (name: string, parentId?: string | null) => {
-    const parent = (parentId !== undefined ? parentId : currentFolderId);
-    const parentFolder = parent ? items.find(i => i.id === parent) : null;
-    const location = parentFolder ? `My Drive > ${parentFolder.name}` : 'My Drive';
+    const parent = parentId !== undefined ? parentId : currentFolderId;
+    const parentFolder = parent ? items.find((i) => i.id === parent) : null;
+    const location = parentFolder
+      ? `My Drive > ${parentFolder.name}`
+      : "My Drive";
 
     const newFolder: DriveItem = {
       id: `folder-${Date.now()}`,
       name,
-      type: 'folder',
+      type: "folder",
       isFolder: true,
-      modified: 'Just now',
-      created: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
-      owner: 'me',
+      modified: "Just now",
+      created: new Date().toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      }),
+      owner: "me",
       location,
-      parentId: parent
+      parentId: parent,
     };
-    setItems(prev => [newFolder, ...prev]);
+    updateItems((prev) => [newFolder, ...prev]);
   };
 
   const uploadFiles = async (files: FileList) => {
     if (!isTgLoggedIn) {
       showToast("Please login to Telegram first");
-      setTgAuthStep('phone');
+      setTgAuthStep("phone");
       return;
     }
 
-    const formData = new FormData();
-    Array.from(files).forEach(file => {
-      formData.append('file', file);
-    });
-
     showToast(`Uploading ${files.length} file(s) to Telegram...`);
-    
-    try {
-      const sessionString = localStorage.getItem('tgSession');
-      const res = await fetch('/api/tg/upload', {
-        method: 'POST',
-        headers: sessionString ? { 'Authorization': `Bearer ${sessionString}` } : {},
-        body: formData
-      });
-      if (res.ok) {
-        showToast("Uploaded successfully!");
-        refreshTgFiles();
-      } else {
-        showToast("Upload failed");
+    const sessionString = localStorage.getItem("tgSession");
+    let uploadedCount = 0;
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const formData = new FormData();
+      formData.append("file", file);
+
+      try {
+        const res = await fetch("/api/tg/upload", {
+          method: "POST",
+          headers: sessionString
+            ? { Authorization: `Bearer ${sessionString}` }
+            : {},
+          body: formData,
+        });
+
+        if (res.ok) {
+          const text = await res.text();
+          let data;
+          try {
+            data = JSON.parse(text);
+          } catch (e) {
+            console.error(`Failed to parse json on success for ${file.name}:`, e);
+            showToast(`Failed: ${file.name} - Server returned invalid data`);
+            continue;
+          }
+          if (data.error) {
+            console.error(`Upload failed for ${file.name}:`, data.error);
+            showToast(`Failed: ${file.name} - ${data.error}`);
+          } else if (data.fileId) {
+            updateItems((prev) => {
+              const parentFolder = currentFolderIdRef.current ? prev.find(i => i.id === currentFolderIdRef.current) : null;
+              const newLocation = parentFolder ? `My Drive > ${parentFolder.name}` : "My Drive";
+              const newItems = [
+                ...prev,
+                {
+                  id: data.fileId,
+                  name: file.name,
+                  isFolder: false,
+                  parentId: currentFolderIdRef.current,
+                  size: file.size.toString(),
+                  date: new Date().toISOString(),
+                  modified: new Date().toLocaleDateString(),
+                  owner: "me",
+                  location: newLocation,
+                  trashed: false,
+                  spam: false,
+                  type: mapMimeToType(file.type),
+                },
+              ];
+              return newItems;
+            });
+            uploadedCount++;
+          }
+        } else {
+          const text = await res.text();
+          let errorMsg = `HTTP Error ${res.status}`;
+          try {
+            const errorData = JSON.parse(text);
+            if (errorData.error) errorMsg = errorData.error;
+          } catch (e) {
+            if (res.status === 413) {
+              errorMsg = "File is too large for the network proxy";
+            } else if (res.status === 504) {
+              errorMsg = "Server connection timed out";
+            } else {
+              errorMsg = `Server returned invalid data (HTTP ${res.status})`;
+            }
+          }
+          console.error(`Upload failed for ${file.name}:`, errorMsg, text);
+          showToast(`Failed: ${file.name} - ${errorMsg}`);
+        }
+      } catch (e: any) {
+        console.error("Network error during upload for ", file.name, e);
+        showToast(`Network error uploading ${file.name}`);
       }
-    } catch (err) {
-      showToast("Network error during upload");
+    }
+
+    if (uploadedCount > 0) {
+      showToast(`${uploadedCount} file(s) uploaded!`);
+    } else {
+      showToast("Upload failed");
     }
   };
 
   const moveToTrash = (id: string, isFolder: boolean) => {
-    const itemToTrash = items.find(item => item.id === id);
+    const itemToTrash = items.find((item) => item.id === id);
     if (!itemToTrash) return;
-    
-    setItems(prev => prev.map(item => item.id === id ? { ...item, trashed: true } : item));
-    setTrashedItemsStack(prev => [...prev, itemToTrash]);
-    setToastMessage(`${isFolder ? 'Folder' : 'File'} moved to trash.`);
+
+    updateItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, trashed: true } : item)),
+    );
+    setTrashedItemsStack((prev) => [...prev, itemToTrash]);
+    setToastMessage(`${isFolder ? "Folder" : "File"} moved to trash.`);
     // Toast logic to hide undo handled in global component
   };
 
   const undoTrash = () => {
     if (trashedItemsStack.length === 0) return;
     const lastTrashed = trashedItemsStack[trashedItemsStack.length - 1];
-    setItems(prev => prev.map(item => item.id === lastTrashed.id ? { ...item, trashed: false } : item));
-    setTrashedItemsStack(prev => prev.slice(0, -1));
+    updateItems((prev) =>
+      prev.map((item) =>
+        item.id === lastTrashed.id ? { ...item, trashed: false } : item,
+      ),
+    );
+    setTrashedItemsStack((prev) => prev.slice(0, -1));
     setToastMessage(null);
   };
 
   const restoreFromTrash = (id: string) => {
-    setItems(prev => prev.map(item => item.id === id ? { ...item, trashed: false } : item));
+    updateItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, trashed: false } : item)),
+    );
   };
 
   const emptyTrash = () => {
-    const itemsToDelete = items.filter(item => item.trashed);
-    setItems(prev => prev.filter(item => !item.trashed));
+    const itemsToDelete = items.filter((item) => item.trashed);
+    updateItems((prev) => prev.filter((item) => !item.trashed));
     // Clear undo stack since they are permanently gone
     setTrashedItemsStack([]);
-    setToastMessage('Trash emptied.');
+    setToastMessage("Trash emptied.");
 
     if (isTgLoggedIn) {
-       const sessionString = localStorage.getItem('tgSession');
-       if (sessionString) {
-          itemsToDelete.forEach(item => {
-             // Avoid failing entire flow if one fails, but we should delete what we can.
-             fetch(`/api/tg/delete/${item.id}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${sessionString}` }
-             }).catch(e => console.error(e));
-          });
-       }
+      const sessionString = localStorage.getItem("tgSession");
+      if (sessionString) {
+        itemsToDelete.forEach((item) => {
+          // Avoid failing entire flow if one fails, but we should delete what we can.
+          fetch(`/api/tg/delete/${item.id}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${sessionString}` },
+          }).catch((e) => console.error(e));
+        });
+      }
     }
   };
 
   const deletePermanently = (id: string) => {
-    setItems(prev => prev.filter(item => item.id !== id));
+    updateItems((prev) => prev.filter((item) => item.id !== id));
     if (isTgLoggedIn) {
-       const sessionString = localStorage.getItem('tgSession');
-       if (sessionString) {
-           fetch(`/api/tg/delete/${id}`, {
-               method: 'DELETE',
-               headers: { 'Authorization': `Bearer ${sessionString}` }
-           }).catch(e => console.error(e));
-       }
+      const sessionString = localStorage.getItem("tgSession");
+      if (sessionString) {
+        fetch(`/api/tg/delete/${id}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${sessionString}` },
+        }).catch((e) => console.error(e));
+      }
     }
   };
 
   const renameItem = (id: string, newName: string) => {
-    setItems(prev => prev.map(item => item.id === id ? { ...item, name: newName } : item));
+    updateItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, name: newName } : item)),
+    );
   };
 
   const changeFolderColor = (id: string, color: string) => {
-    setItems(prev => prev.map(item => item.id === id ? { ...item, color } : item));
+    updateItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, color } : item)),
+    );
   };
 
   const toggleStarred = (id: string) => {
-    setItems(prev => prev.map(item => item.id === id ? { ...item, starred: !item.starred } : item));
+    updateItems((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, starred: !item.starred } : item,
+      ),
+    );
   };
 
   const viewItemInfo = (item: DriveItem | null) => {
@@ -556,85 +817,81 @@ export function DriveProvider({ children }: { children: ReactNode }) {
   };
 
   const downloadItem = async (item: DriveItem) => {
+    let filename = item.name;
+    if (!filename.includes(".")) {
+      if (item.type === "video") filename += ".mp4";
+      else if (item.type === "audio") filename += ".mp3";
+      else if (item.type === "image") filename += ".jpg";
+      else filename += ".bin";
+    }
+
     if (isTgLoggedIn) {
-      showToast(`Downloading ${item.name} from Telegram...`);
+      showToast(`Preparing download for ${filename}...`);
+      const sessionString = typeof window !== "undefined" ? localStorage.getItem("tgSession") : null;
+      if (!sessionString) return;
+
       try {
-        const sessionString = localStorage.getItem('tgSession');
-        const res = await fetch(`/api/tg/download/${item.id}`, {
-           headers: sessionString ? { 'Authorization': `Bearer ${sessionString}` } : {}
+        const downloadUrl = `/api/tg/download/${item.id}`;
+        const response = await fetch(downloadUrl, {
+          headers: {
+            Authorization: `Bearer ${sessionString}`,
+          },
         });
-        if (res.ok) {
-           const blob = await res.blob();
-           const url = window.URL.createObjectURL(blob);
-           const link = document.createElement('a');
-           link.href = url;
-           link.download = item.name;
-           document.body.appendChild(link);
-           link.click();
-           document.body.removeChild(link);
-           window.URL.revokeObjectURL(url);
-        } else {
-           showToast("Download failed");
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || response.statusText || "Download failed");
         }
-      } catch(err) {
-        showToast("Network error during download");
+
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("text/html")) {
+          throw new Error("Received HTML error page instead of file");
+        }
+
+        const blob = await response.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = objectUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(objectUrl);
+        
+        showToast("Download completed!");
+      } catch (err: any) {
+        console.error("Download error:", err);
+        showToast(`Download failed: ${err.message}`);
       }
       return;
     }
 
-    let url = item.imageUrl || '#';
-    let filename = item.name;
-
-    if (item.type === 'image' && settings.mediaDownloadQuality < 100 && item.imageUrl) {
-      showToast(`Compressing ${item.name} at ${settings.mediaDownloadQuality}% quality...`);
-      try {
-        const img = new globalThis.Image();
-        img.src = item.imageUrl;
-        await new Promise((resolve, reject) => {
-          img.onload = resolve;
-          img.onerror = reject;
-        });
-        
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0);
-          
-          const quality = settings.mediaDownloadQuality / 100;
-          url = canvas.toDataURL('image/jpeg', quality);
-          if (!filename.toLowerCase().endsWith('.jpg') && !filename.toLowerCase().endsWith('.jpeg')) {
-            filename = filename.replace(/\.[^/.]+$/, "") + ".jpg";
-          }
-        }
-      } catch (err) {
-        console.error("Compression failed", err);
-      }
-    } else if (item.type === 'video' && settings.mediaDownloadQuality < 100) {
-      showToast(`Requesting compressed video from server... (${settings.mediaDownloadQuality}%)`);
-      // Mock API call structure for video compression
-      console.log(`fetch('/api/download-video?id=${item.id}&quality=${settings.mediaDownloadQuality}')`);
-      setTimeout(() => showToast(`Mock: Downloaded compressed video.`), 1500);
-      return; 
+    // Fallback for demo non-logged-in dummy items
+    let url = item.imageUrl;
+    if (url) {
+      url = url.replace("inline=true", "inline=false");
+    }
+    if (!url) {
+      url = `/api/tg/download/${item.id}`;
     }
 
-    const link = document.createElement('a');
-    link.href = url; 
+    if (item.type === "image" && settings.mediaDownloadQuality < 100) {
+      showToast(`Image compression at download is experimental.`);
+    }
+
+    const link = document.createElement("a");
+    link.href = url;
     link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    
-    if (item.type !== 'video' || settings.mediaDownloadQuality === 100) {
-      showToast(`Downloading ${filename}...`);
-    }
+    showToast(`Downloading ${filename}...`);
   };
 
   const openItem = (item: DriveItem) => {
     if (item.isFolder) {
       navigateToFolder(item.id);
-    } else if (['image', 'video', 'audio'].includes(item.type)) {
+    } else if (["image", "video", "audio"].includes(item.type)) {
       viewMedia(item);
     } else {
       // Don't auto-download. Instead show info or just notify
@@ -644,40 +901,94 @@ export function DriveProvider({ children }: { children: ReactNode }) {
   };
 
   const moveItem = (itemId: string, destinationId: string | null) => {
-    const destFolder = destinationId ? items.find(i => i.id === destinationId) : null;
-    const newLocation = destFolder ? `My Drive > ${destFolder.name}` : 'My Drive';
-    
-    setItems(prev => prev.map(item => {
-      if (item.id === itemId) {
-        return { ...item, parentId: destinationId, location: newLocation };
-      }
-      return item;
-    }));
-    
-    showToast(`Moved to ${destFolder ? destFolder.name : 'My Drive'}`);
+    const destFolder = destinationId
+      ? items.find((i) => i.id === destinationId)
+      : null;
+    const newLocation = destFolder
+      ? `My Drive > ${destFolder.name}`
+      : "My Drive";
+
+    updateItems((prev) =>
+      prev.map((item) => {
+        if (item.id === itemId) {
+          return { ...item, parentId: destinationId, location: newLocation };
+        }
+        return item;
+      }),
+    );
+
+    showToast(`Moved to ${destFolder ? destFolder.name : "My Drive"}`);
   };
 
   const navigateToFolder = (id: string | null) => {
     if (id !== currentFolderId) {
-      setNavigationHistory(prev => [...prev, { page: currentPage, folderId: currentFolderId }]);
+      setNavigationHistory((prev) => [
+        ...prev,
+        { page: currentPage, folderId: currentFolderId },
+      ]);
     }
     setCurrentFolderId(id);
     if (id) {
-      setCurrentPage('my-drive');
+      setCurrentPage("my-drive");
     }
   };
 
   return (
-    <DriveContext.Provider value={{
-      items, createFolder, uploadFiles, moveToTrash, restoreFromTrash,
-      deletePermanently, renameItem, changeFolderColor, toggleStarred, undoTrash, emptyTrash,
-      viewItemInfo, infoItem, viewMedia, mediaItem, renamingItem, setRenamingItem, movingItem, setMovingItem, moveItem, openItem, downloadItem, 
-      selectedIds, toggleSelection, clearSelection, theme, setTheme, toggleTheme, settings, updateSettings, resetSettings,
-      batchMoveToTrash, isDeleteModalOpen, setDeleteModalOpen, confirmDelete,
-      currentFolderId, navigateToFolder, currentPage, setCurrentPage: updatePageAndHistory,
-      goBack, toastMessage, showToast, isFeatureShowcaseOpen, setIsFeatureShowcaseOpen,
-      isTgLoggedIn, tgUser, tgAuthStep, setTgAuthStep, sendTgCode, signInTg, logoutTg
-    }}>
+    <DriveContext.Provider
+      value={{
+        items,
+        createFolder,
+        uploadFiles,
+        moveToTrash,
+        restoreFromTrash,
+        deletePermanently,
+        renameItem,
+        changeFolderColor,
+        toggleStarred,
+        undoTrash,
+        emptyTrash,
+        viewItemInfo,
+        infoItem,
+        viewMedia,
+        mediaItem,
+        renamingItem,
+        setRenamingItem,
+        movingItem,
+        setMovingItem,
+        moveItem,
+        openItem,
+        downloadItem,
+        selectedIds,
+        toggleSelection,
+        clearSelection,
+        theme,
+        setTheme,
+        toggleTheme,
+        settings,
+        updateSettings,
+        resetSettings,
+        batchMoveToTrash,
+        isDeleteModalOpen,
+        setDeleteModalOpen,
+        confirmDelete,
+        currentFolderId,
+        navigateToFolder,
+        currentPage,
+        setCurrentPage: updatePageAndHistory,
+        goBack,
+        toastMessage,
+        showToast,
+        isFeatureShowcaseOpen,
+        setIsFeatureShowcaseOpen,
+        isTgLoggedIn,
+        tgUser,
+        tgAuthStep,
+        setTgAuthStep,
+        sendTgCode,
+        signInTg,
+        logoutTg,
+      }}
+    >
       {children}
     </DriveContext.Provider>
   );
@@ -686,7 +997,7 @@ export function DriveProvider({ children }: { children: ReactNode }) {
 export function useDrive() {
   const context = useContext(DriveContext);
   if (context === undefined) {
-    throw new Error('useDrive must be used within a DriveProvider');
+    throw new Error("useDrive must be used within a DriveProvider");
   }
   return context;
 }

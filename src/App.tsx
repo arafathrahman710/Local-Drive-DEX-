@@ -230,7 +230,7 @@ export default function App() {
         />
         
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto relative scrollbar-hide">
+        <main className="flex-1 overflow-y-auto relative custom-scrollbar">
           <AnimatePresence mode="wait">
             <motion.div
               key={`${currentPage}-${currentFolderId || 'root'}`}

@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Cpu, Zap, Activity, Info, ShieldCheck, Sparkles, HardDrive, Database, ShieldAlert, Lock, Boxes, CircuitBoard, Wifi, Globe, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { NvidiaIcon } from '../NvidiaIcon';
+import { RyzenIcon } from '../RyzenIcon';
+import { TitanIcon } from '../TitanIcon';
 
 export function System() {
   const [ramUsage, setRamUsage] = useState(12.4);
@@ -178,7 +181,7 @@ export function System() {
           
           <div className="flex items-center gap-4 mb-8">
             <div className="w-14 h-14 rounded-2xl bg-orange-500/10 overflow-hidden flex items-center justify-center shadow-inner">
-              <img src="/Ryzen.webp" alt="Ryzen" className="w-10 h-10 object-contain translate-y-1" referrerPolicy="no-referrer" />
+              <RyzenIcon className="w-10 h-10 object-contain translate-y-1 text-orange-500" />
             </div>
             <div>
               <h3 className="text-2xl font-bold text-slate-900 dark:text-white leading-tight">Neural Stack</h3>
@@ -261,7 +264,7 @@ export function System() {
           <div className="relative z-10">
             <div className="flex items-center gap-4 mb-8">
               <div className="w-14 h-14 rounded-2xl bg-green-500/10 overflow-hidden flex items-center justify-center shadow-inner border border-green-500/20 px-2">
-                <img src="/Nvidia.png" alt="Nvidia" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                <NvidiaIcon className="w-full h-full object-contain" />
               </div>
               <div>
                 <h3 className="text-2xl font-bold text-white leading-tight">Visual Compute</h3>
@@ -272,14 +275,12 @@ export function System() {
             <div className="space-y-6">
                <div className="flex flex-col gap-1">
                  <div className="flex items-center gap-2">
-                   <motion.img 
-                     src="/Nvidia.png" 
-                     alt="Nvidia Logo" 
-                     className="w-6 h-6 object-contain drop-shadow-[0_0_8px_rgba(34,197,94,0.8)]" 
-                     referrerPolicy="no-referrer"
+                   <motion.div
                      animate={{ opacity: [0.8, 1, 0.8] }}
                      transition={{ duration: 2, repeat: Infinity }}
-                   />
+                   >
+                     <NvidiaIcon className="w-6 h-6 object-contain drop-shadow-[0_0_8px_rgba(34,197,94,0.8)]" />
+                   </motion.div>
                    <motion.span 
                      className="text-sm font-black tracking-[0.2em] text-green-400 drop-shadow-[0_0_12px_rgba(34,197,94,0.8)] uppercase"
                      animate={{ opacity: [0.6, 1, 0.6] }}
@@ -356,7 +357,7 @@ export function System() {
           <div className="relative z-10">
             <div className="flex items-center gap-4 mb-8">
               <div className="w-14 h-14 rounded-2xl bg-indigo-500/20 overflow-hidden flex items-center justify-center shadow-inner border border-indigo-500/30">
-                <img src="/Titan M2.jpeg" alt="Titan M2" className="w-10 h-10 object-contain shadow-2xl" referrerPolicy="no-referrer" />
+                <TitanIcon className="w-10 h-10 object-contain shadow-2xl text-indigo-500" />
               </div>
               <div>
                 <h3 className="text-2xl font-bold text-white leading-tight">Security Vault</h3>
@@ -391,12 +392,7 @@ export function System() {
                   </div>
                </div>
 
-               <div className="flex items-center justify-center p-3 bg-indigo-500 text-white rounded-2xl shadow-lg shadow-indigo-500/40 mt-4">
-                  <span className="text-xs font-black tracking-[0.2em] uppercase flex items-center gap-2">
-                    <CircuitBoard className="w-4 h-4" />
-                    Zero Trust Engine
-                  </span>
-               </div>
+
             </div>
           </div>
         </motion.div>
@@ -509,7 +505,7 @@ export function System() {
             </div>
             <div>
               <h3 className="text-2xl font-bold text-slate-900 dark:text-white leading-tight">Data Storage</h3>
-              <p className="text-xs font-bold text-blue-600 uppercase tracking-[0.2em]">Infinite Cold Storage</p>
+              <p className="text-xs font-bold text-blue-600 uppercase tracking-[0.2em]">Cloud Storage</p>
             </div>
           </div>
 
@@ -522,7 +518,7 @@ export function System() {
                 <p className="text-sm font-bold text-slate-500 dark:text-slate-400 mt-1">Currently Consumed</p>
               </div>
               <div className="text-right">
-                <p className="text-2xl font-black text-blue-600 tracking-tight">UNLIMITED</p>
+                <p className="text-2xl font-black text-blue-600 tracking-tight">PROTECTED</p>
                 <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-wider">Total capacity</p>
               </div>
             </div>

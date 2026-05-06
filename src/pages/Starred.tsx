@@ -9,11 +9,22 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useDrive, DriveItem } from '../contexts/DriveContext';
 import { DriveItemCard } from '../components/DriveItemCard';
 import { cn } from '../lib/utils';
+import { LoginBridge } from '../components/LoginBridge';
 
 export function Starred() {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [view, setView] = useState<'grid' | 'list'>('grid');
-  const { items, goBack, selectedIds, clearSelection, settings } = useDrive();
+  const { items, goBack, selectedIds, clearSelection, settings, isTgLoggedIn } = useDrive();
+
+  if (!isTgLoggedIn) {
+    return (
+      <LoginBridge 
+        title="Your Favorites"
+        description="Star any file or folder to keep them within reach. Login with Telegram to see your collection."
+        icon="shield"
+      />
+    );
+  }
 
   // Filter items that are starred and not trashed
   const starredItems = items.filter(item => item.starred && !item.trashed);

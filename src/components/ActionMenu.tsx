@@ -120,14 +120,22 @@ export function ActionMenu({ id, isFolder, trashed, activeMenu, onToggle }: Acti
         className="relative" 
         ref={menuRef} 
         onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+        onPointerUp={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
+        onMouseUp={(e) => e.stopPropagation()}
         onTouchStart={(e) => e.stopPropagation()}
+        onTouchEnd={(e) => e.stopPropagation()}
       >
         <button 
           id={`action-menu-button-${id}`}
-          onClick={(e) => { e.stopPropagation(); onToggle(isOpen ? null : id); setShowColorPicker(false); }}
-          onMouseDown={(e) => e.stopPropagation()}
-          onTouchStart={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); onToggle(isOpen ? null : id); setShowColorPicker(false); e.preventDefault(); }}
+          onPointerDown={(e) => { e.stopPropagation(); }}
+          onPointerUp={(e) => { e.stopPropagation(); }}
+          onMouseDown={(e) => { e.stopPropagation(); }}
+          onMouseUp={(e) => { e.stopPropagation(); }}
+          onTouchStart={(e) => { e.stopPropagation(); }}
+          onTouchEnd={(e) => { e.stopPropagation(); }}
           className={cn(
             "p-2 rounded-full transition-all focus:opacity-100",
             isOpen 

@@ -117,8 +117,8 @@ export function Computers() {
                 </div>
                 <div className="w-[1px] h-6 bg-slate-200 mx-1" />
                 <button 
-                  onClick={() => {/* Mock move */}}
-                  className="p-2.5 text-slate-600 hover:text-primary hover:bg-primary/5 rounded-xl transition-all"
+                   onClick={() => {/* Mock move */}}
+                   className="p-2.5 text-slate-600 hover:text-primary hover:bg-primary/5 rounded-xl transition-all"
                 >
                   <Move className="w-5 h-5" />
                 </button>
@@ -151,94 +151,40 @@ export function Computers() {
       </header>
 
       {/* QUICK CONNECT ACTIONS */}
-      <div className={cn("grid grid-cols-1 md:grid-cols-3 gap-8", isMaterial3 ? "mb-16" : "mb-12")}>
+      <div className={cn("grid grid-cols-1 gap-8", isMaterial3 ? "mb-16" : "mb-12")}>
         <motion.button 
-          whileHover={isMaterial3 ? { y: -8, scale: 1.02 } : { y: -4 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={() => setShowConnectModal('phone')}
+          whileHover={isMaterial3 ? { y: -8, scale: 1.01 } : { y: -4 }}
+          whileTap={{ scale: 0.99 }}
+          onClick={() => setShowConnectModal('general')}
           className={cn(
             "group relative text-left transition-all overflow-hidden border",
             isMaterial3 
-              ? "p-8 bg-white dark:bg-[#1C1C1E] border-slate-200/60 dark:border-white/5 rounded-[40px] hover:shadow-2xl hover:shadow-primary/10"
-              : "p-6 bg-white dark:bg-[#2C2C2E] border-slate-100 rounded-3xl hover:border-primary"
+              ? "p-10 bg-white dark:bg-[#1C1C1E] border-slate-200/60 dark:border-white/5 rounded-[48px] hover:shadow-2xl hover:shadow-primary/10"
+              : "p-8 bg-white dark:bg-[#2C2C2E] border-slate-100 rounded-[32px] hover:border-primary"
           )}
         >
-          {isMaterial3 && <div className="absolute -right-8 -top-8 w-32 h-32 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/20 transition-colors" />}
-          <div className={cn(
-            "flex items-center justify-center mb-6 group-hover:scale-110 transition-transform",
-            isMaterial3 
-              ? "w-16 h-16 bg-primary-container text-on-primary-container rounded-3xl m3-bounce" 
-              : "w-14 h-14 bg-primary/10 text-primary rounded-2xl"
-          )}>
-             <Smartphone className={isMaterial3 ? "w-8 h-8" : "w-7 h-7"} />
-          </div>
-          <h3 className={cn("font-bold text-slate-900 dark:text-white mb-2", isMaterial3 ? "text-xl" : "text-lg")}>Phone Connect</h3>
-          <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed mb-6">Sync photos & files instantly via secure QR handshake</p>
-          <div className={cn(
-            "flex items-center text-primary font-black gap-2 uppercase tracking-widest",
-            isMaterial3 ? "text-sm" : "text-xs"
-          )}>
-            Setup Mobile <ChevronRight className="w-4 h-4" />
-          </div>
-        </motion.button>
-
-        <motion.button 
-          whileHover={isMaterial3 ? { y: -8, scale: 1.02 } : { y: -4 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={() => setShowConnectModal('pc')}
-          className={cn(
-            "group relative text-left transition-all overflow-hidden border",
-            isMaterial3 
-              ? "p-8 bg-white dark:bg-[#1C1C1E] border-slate-200/60 dark:border-white/5 rounded-[40px] hover:shadow-2xl hover:shadow-blue-500/10"
-              : "p-6 bg-white dark:bg-[#2C2C2E] border-slate-100 rounded-3xl hover:border-blue-500"
-          )}
-        >
-          {isMaterial3 && <div className="absolute -right-8 -top-8 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl group-hover:bg-blue-500/20 transition-colors" />}
-          <div className={cn(
-            "flex items-center justify-center mb-6 group-hover:scale-110 transition-transform",
-            isMaterial3 
-              ? "w-16 h-16 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-3xl m3-bounce" 
-              : "w-14 h-14 bg-blue-500/10 text-blue-600 rounded-2xl"
-          )}>
-             <Laptop className={isMaterial3 ? "w-8 h-8" : "w-7 h-7"} />
-          </div>
-          <h3 className={cn("font-bold text-slate-900 dark:text-white mb-2", isMaterial3 ? "text-xl" : "text-lg")}>Desktop Sync</h3>
-          <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed mb-6">Mirror local folders from your Windows or Mac workstation</p>
-          <div className={cn(
-            "flex items-center text-blue-600 font-black gap-2 uppercase tracking-widest",
-            isMaterial3 ? "text-sm" : "text-xs"
-          )}>
-            Install Client <ChevronRight className="w-4 h-4" />
-          </div>
-        </motion.button>
-
-        <motion.button 
-          whileHover={isMaterial3 ? { y: -8, scale: 1.02 } : { y: -4 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={() => setShowConnectModal('share')}
-          className={cn(
-            "group relative text-left transition-all overflow-hidden border",
-            isMaterial3 
-              ? "p-8 bg-white dark:bg-[#1C1C1E] border-slate-200/60 dark:border-white/5 rounded-[40px] hover:shadow-2xl hover:shadow-purple-500/10"
-              : "p-6 bg-white dark:bg-[#2C2C2E] border-slate-100 rounded-3xl hover:border-purple-500"
-          )}
-        >
-          {isMaterial3 && <div className="absolute -right-8 -top-8 w-32 h-32 bg-purple-500/5 rounded-full blur-3xl group-hover:bg-purple-500/20 transition-colors" />}
-          <div className={cn(
-            "flex items-center justify-center mb-6 group-hover:scale-110 transition-transform",
-            isMaterial3 
-              ? "w-16 h-16 bg-purple-100 dark:bg-purple-900/30 text-purple-600 rounded-3xl m3-bounce" 
-              : "w-14 h-14 bg-purple-500/10 text-purple-600 rounded-2xl"
-          )}>
-             <Share2 className={isMaterial3 ? "w-8 h-8" : "w-7 h-7"} />
-          </div>
-          <h3 className={cn("font-bold text-slate-900 dark:text-white mb-2", isMaterial3 ? "text-xl" : "text-lg")}>Share Data</h3>
-          <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed mb-6">Ultra-fast P2P File sharing with nearby Hardware bridges</p>
-          <div className={cn(
-            "flex items-center text-purple-600 font-black gap-2 uppercase tracking-widest",
-            isMaterial3 ? "text-sm" : "text-xs"
-          )}>
-            Open Portal <ChevronRight className="w-4 h-4" />
+          {isMaterial3 && <div className="absolute -right-20 -top-20 w-64 h-64 bg-primary/5 rounded-full blur-[100px] group-hover:bg-primary/20 transition-colors" />}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
+            <div className="flex items-center gap-6">
+              <div className={cn(
+                "flex items-center justify-center shrink-0 group-hover:rotate-12 transition-transform",
+                isMaterial3 
+                  ? "w-20 h-20 bg-primary-container text-on-primary-container rounded-[28px] m3-bounce shadow-lg" 
+                  : "w-16 h-16 bg-primary/10 text-primary rounded-2xl"
+              )}>
+                 <Monitor className={isMaterial3 ? "w-10 h-10" : "w-8 h-8"} />
+              </div>
+              <div>
+                <h3 className={cn("font-black text-slate-900 dark:text-white mb-2", isMaterial3 ? "text-2xl" : "text-xl")}>Connect Devices</h3>
+                <p className="text-slate-500 dark:text-slate-400 font-medium leading-relaxed max-w-lg">Sync phones, tablets, or computers instantly via secure Cloud Link or Desktop Sync clients.</p>
+              </div>
+            </div>
+            <div className={cn(
+              "px-8 py-4 bg-primary text-white font-black rounded-full shadow-lg shadow-primary/25 flex items-center gap-3 self-start md:self-center transition-all group-hover:px-10",
+              isMaterial3 ? "text-sm tracking-widest uppercase" : "text-xs"
+            )}>
+              Get Started <ChevronRight className="w-5 h-5" />
+            </div>
           </div>
         </motion.button>
       </div>
@@ -407,8 +353,8 @@ export function Computers() {
               animate={{ opacity: 1, scale: 1, y: 0 }} 
               exit={{ opacity: 0, scale: 0.9, y: 40 }} 
               className={cn(
-                "bg-white dark:bg-[#1C1C1E] rounded-[40px] shadow-[0_32px_128px_-32px_rgba(0,0,0,0.5)] w-full max-w-lg relative z-10 border border-white/20 overflow-hidden",
-                showConnectModal === 'phone' ? "px-10 py-[0.7cm]" : "p-10"
+                "bg-white dark:bg-[#1C1C1E] rounded-[40px] shadow-[0_32px_128px_-32px_rgba(0,0,0,0.5)] w-full max-w-lg relative z-10 border border-white/20 overflow-y-auto overflow-x-hidden custom-scrollbar max-h-[85vh]",
+                showConnectModal === 'phone' ? "px-6 py-8 sm:px-10" : "p-6 sm:p-10"
               )}
             >
               {/* Modal Background glow */}
@@ -416,26 +362,26 @@ export function Computers() {
               
               <button 
                 onClick={() => setShowConnectModal(null)}
-                className="absolute top-6 right-6 p-2 rounded-full hover:bg-slate-100 transition-colors"
+                className="absolute top-4 right-4 sm:top-6 sm:right-6 p-2 rounded-full hover:bg-slate-100 transition-colors z-20 bg-white/50"
               >
                 <Plus className="w-6 h-6 text-slate-400 rotate-45" />
               </button>
 
               {showConnectModal === 'phone' ? (
                 <div className="text-center">
-                   <div className="w-20 h-20 bg-primary/10 rounded-[28px] flex items-center justify-center text-primary mx-auto mb-6">
-                      <Smartphone className="w-10 h-10" />
+                   <div className="w-16 h-16 sm:w-20 sm:h-20 bg-primary/10 rounded-[24px] flex items-center justify-center text-primary mx-auto mb-4 sm:mb-6">
+                      <Smartphone className="w-8 h-8 sm:w-10 sm:h-10" />
                    </div>
-                   <h3 className="text-3xl font-black text-slate-900 dark:text-white mb-2">Connect Mobile</h3>
-                   <p className="text-slate-500 dark:text-slate-400 font-medium mb-10">Scan this code with your phone camera to link your device instantly</p>
+                   <h3 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mb-2">Connect Mobile</h3>
+                   <p className="text-slate-500 dark:text-slate-400 font-medium mb-6 sm:mb-8 text-sm sm:text-base">Scan this code with your phone camera to link your device instantly</p>
                    
-                   <div className="relative p-8 bg-slate-50 dark:bg-white/10 rounded-[32px] border-2 border-slate-100 dark:border-white/5 inline-block mb-10 group">
-                      <QrCode className="w-48 h-48 text-slate-900 opacity-80" />
+                   <div className="relative p-6 sm:p-8 bg-slate-50 dark:bg-white/10 rounded-[28px] border-2 border-slate-100 dark:border-white/5 inline-block mb-6 sm:mb-8 group">
+                      <QrCode className="w-32 h-32 sm:w-48 sm:h-48 text-slate-900 opacity-80" />
                       {/* Scanning Animation */}
                       <motion.div 
-                        animate={{ y: [0, 192, 0] }}
+                        animate={{ y: [0, 128, 0] }}
                         transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                        className="absolute left-8 right-8 h-0.5 bg-primary shadow-[0_0_15px_rgba(26,115,232,1)]"
+                        className="absolute left-6 right-6 h-0.5 bg-primary shadow-[0_0_15px_rgba(26,115,232,1)]"
                       />
                    </div>
                    
@@ -453,6 +399,20 @@ export function Computers() {
                    <p className="text-slate-500 dark:text-slate-400 font-medium mb-8">Select a method to extend your storage ecosystem</p>
                    
                    <div className="space-y-4">
+                      <button 
+                         onClick={() => setShowConnectModal('phone')}
+                         className="w-full p-6 bg-slate-50 dark:bg-white/5 hover:bg-primary hover:text-white rounded-3xl text-left transition-all duration-300 group flex items-center justify-between border border-transparent dark:border-white/5"
+                      >
+                         <div className="flex items-center gap-4">
+                            <Smartphone className="w-6 h-6 text-slate-700 dark:text-slate-300 group-hover:text-white" />
+                            <div>
+                               <p className="font-bold text-slate-900 dark:text-white group-hover:text-white">Connect Mobile Device</p>
+                               <p className="text-xs opacity-60 text-slate-500 dark:text-slate-400 group-hover:text-white/80">iOS and Android Integration</p>
+                            </div>
+                         </div>
+                         <ArrowUpRight className="w-5 h-5 opacity-40 group-hover:opacity-100 text-slate-700 dark:text-white" />
+                      </button>
+
                       <button className="w-full p-6 bg-slate-50 dark:bg-white/5 hover:bg-primary hover:text-white rounded-3xl text-left transition-all duration-300 group flex items-center justify-between border border-transparent dark:border-white/5">
                          <div className="flex items-center gap-4">
                             <Laptop className="w-6 h-6 text-slate-700 dark:text-slate-300 group-hover:text-white" />
@@ -463,7 +423,8 @@ export function Computers() {
                          </div>
                          <ArrowUpRight className="w-5 h-5 opacity-40 group-hover:opacity-100 text-slate-700 dark:text-white" />
                       </button>
-                      <button className="w-full p-6 bg-slate-50 dark:bg-white/5 hover:bg-primary hover:text-white rounded-3xl text-left transition-all duration-300 group flex items-center justify-between border border-transparent dark:border-white/5">
+
+                      <button className="w-full p-6 bg-slate-50 dark:bg-white/5 hover:bg-purple-600 hover:text-white rounded-3xl text-left transition-all duration-300 group flex items-center justify-between border border-transparent dark:border-white/5">
                          <div className="flex items-center gap-4">
                             <Share2 className="w-6 h-6 text-slate-700 dark:text-slate-300 group-hover:text-white" />
                             <div>

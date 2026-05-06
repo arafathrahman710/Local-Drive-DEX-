@@ -14,6 +14,7 @@ import { motion, AnimatePresence } from 'motion/react';
 
 import { useDrive, DriveItem } from '../contexts/DriveContext';
 import { DriveItemCard } from '../components/DriveItemCard';
+import { LoginBridge } from '../components/LoginBridge';
 
 export function MyDrive() {
   const [view, setView] = useState<'grid' | 'list'>('grid');
@@ -34,18 +35,25 @@ export function MyDrive() {
   const currentFolder = currentFolderId ? items.find(i => i.id === currentFolderId) : null;
 
   const myDriveItems = items.filter(item => {
-    if (item.trashed) return false;
+    if (item.trashed || item.spam) return false;
     
-    if (!currentFolderId) {
-      return item.location === 'My Drive';
-    } else {
-      const parentFolderPath = `My Drive > ${currentFolder?.name}`;
-      return item.location === parentFolderPath;
-    }
-  });
+    return (item.parentId || null) === (currentFolderId || null);
+  }).sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
 
   const folders = myDriveItems.filter(item => item.isFolder);
   const files = myDriveItems.filter(item => !item.isFolder);
+
+  const { isTgLoggedIn, setTgAuthStep, tgUser } = useDrive();
+
+  if (!isTgLoggedIn) {
+    return (
+      <LoginBridge 
+        title="Access Your Drive"
+        description="Sign in with Telegram to manage your assets, organize folders, and sync across all your devices."
+        icon="smartphone"
+      />
+    );
+  }
 
   const handleMoveSelection = () => {
     const firstItem = items.find(i => i.id === selectedIds[0]);

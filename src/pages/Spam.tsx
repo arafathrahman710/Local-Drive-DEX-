@@ -1,11 +1,28 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { AlertTriangle, Trash2, MailX, AlertCircle, ArrowLeft } from 'lucide-react';
 import { useDrive } from '../contexts/DriveContext';
+import { DriveItemCard } from '../components/DriveItemCard';
+import { motion } from 'motion/react';
+import { LoginBridge } from '../components/LoginBridge';
 
 export function Spam() {
-  const { goBack } = useDrive();
+  const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const { goBack, items, emptyTrash, isTgLoggedIn } = useDrive();
+
+  if (!isTgLoggedIn) {
+     return (
+       <LoginBridge 
+         title="Security Shield"
+         description="Filter out noise and suspicious activity. Login with Telegram to review and clean up your spam folder."
+         icon="shield"
+       />
+     );
+  }
+
+  const spamItems = items.filter(item => item.spam);
+
   return (
-    <div className="p-4 sm:p-8 max-w-6xl mx-auto space-y-8">
+    <div className="p-4 sm:p-8 max-w-6xl mx-auto space-y-8" onClick={() => setActiveMenu(null)}>
       <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-2">
         <div className="flex items-center gap-4">
           <button 
@@ -32,15 +49,34 @@ export function Spam() {
         </p>
       </div>
 
-      <div className="bg-white border border-slate-200 dark:bg-slate-900/40 dark:backdrop-blur-[40px] dark:border-white/5 rounded-2xl shadow-sm flex flex-col items-center justify-center p-16 text-center">
-        <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-6 border border-slate-200 dark:border-white/5 shadow-inner">
-           <MailX className="w-10 h-10 text-slate-400" />
-        </div>
-        <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100 mb-2">Hooray, no spam here!</h2>
-        <p className="text-slate-500 dark:text-slate-400 max-w-md">
-          Any sketchy files or folders shared with you will appear here so you can review them safely.
-        </p>
-      </div>
+      <section className="space-y-4">
+        {spamItems.length > 0 ? (
+          <motion.div 
+            layout
+            className="flex flex-col gap-2"
+          >
+            {spamItems.map(item => (
+              <DriveItemCard 
+                key={item.id} 
+                item={item} 
+                view="list" 
+                activeMenu={activeMenu} 
+                setActiveMenu={setActiveMenu} 
+              />
+            ))}
+          </motion.div>
+        ) : (
+          <div className="bg-white border border-slate-200 dark:bg-slate-900/40 dark:backdrop-blur-[40px] dark:border-white/5 rounded-2xl shadow-sm flex flex-col items-center justify-center p-16 text-center">
+            <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-6 border border-slate-200 dark:border-white/5 shadow-inner">
+               <MailX className="w-10 h-10 text-slate-400" />
+            </div>
+            <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100 mb-2">Hooray, no spam here!</h2>
+            <p className="text-slate-500 dark:text-slate-400 max-w-md">
+              Any sketchy files or folders shared with you will appear here so you can review them safely.
+            </p>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

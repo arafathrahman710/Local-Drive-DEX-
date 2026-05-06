@@ -39,18 +39,10 @@ export function DriveItemCard({ item, view, activeMenu, setActiveMenu, trashed }
 
   const onClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (isSelectionActive) {
+    if (isSelectionActive || e.metaKey || e.ctrlKey) {
       toggleSelection(item.id);
     } else {
-      if (item.isFolder) {
-        if (typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches) {
-          openItem(item);
-        } else if (e.detail === 2) {
-          openItem(item);
-        }
-      } else {
-        openItem(item);
-      }
+      openItem(item);
     }
   };
 
@@ -254,6 +246,12 @@ export function DriveItemCard({ item, view, activeMenu, setActiveMenu, trashed }
           view === 'grid' ? (item.isFolder && isMaterial3 ? 'absolute top-1/2 -translate-y-1/2 right-4' : 'absolute top-2 right-2') : ''
         )}
         onClick={e => e.stopPropagation()}
+        onPointerDown={e => e.stopPropagation()}
+        onPointerUp={e => e.stopPropagation()}
+        onMouseDown={e => e.stopPropagation()}
+        onMouseUp={e => e.stopPropagation()}
+        onTouchStart={e => e.stopPropagation()}
+        onTouchEnd={e => e.stopPropagation()}
       >
         <ActionMenu 
           id={item.id} 

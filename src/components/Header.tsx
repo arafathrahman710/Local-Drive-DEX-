@@ -168,7 +168,7 @@ export function Header({ onOpenSettings, onToggleProfile, onToggleSidebar, profi
             </div>
             <input 
               type="text" 
-              placeholder={isMaterial3 ? "Search files, folders and more..." : "Search in Drive"}
+              placeholder="Search Cloud"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={() => {

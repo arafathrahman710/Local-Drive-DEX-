@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, Lock, Check } from 'lucide-react';
 import { DeleteConfirmationModal } from './DeleteConfirmationModal';
 import { FeatureShowcaseModal } from './FeatureShowcaseModal';
+import { formatBytes } from '../lib/utils';
 
 export function GlobalModals() {
   const { 
@@ -113,7 +114,7 @@ export function GlobalModals() {
                       {infoItem.size && (
                         <tr>
                           <td className="py-2 text-slate-500">Size</td>
-                          <td className="py-2 text-slate-800 font-medium">{infoItem.size}</td>
+                          <td className="py-2 text-slate-800 font-medium">{formatBytes(infoItem.size)}</td>
                         </tr>
                       )}
                     </tbody>

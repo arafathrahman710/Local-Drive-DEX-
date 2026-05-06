@@ -9,11 +9,22 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useDrive } from '../contexts/DriveContext';
 import { DriveItemCard } from '../components/DriveItemCard';
 import { cn } from '../lib/utils';
+import { LoginBridge } from '../components/LoginBridge';
 
 export function Trash() {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [view, setView] = useState<'grid' | 'list'>('grid');
-  const { items, emptyTrash, goBack, selectedIds, clearSelection } = useDrive();
+  const { items, emptyTrash, goBack, selectedIds, clearSelection, isTgLoggedIn } = useDrive();
+
+  if (!isTgLoggedIn) {
+    return (
+      <LoginBridge 
+        title="Sanitize Your Space"
+        description="Review items marked for deletion. Login with Telegram to manage your trash and reclaim storage."
+        icon="lock"
+      />
+    );
+  }
 
   const trashedItems = items.filter(item => item.trashed);
   const isSelectionActive = selectedIds.length > 0;

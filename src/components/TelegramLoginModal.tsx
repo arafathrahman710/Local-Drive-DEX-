@@ -78,6 +78,9 @@ export function TelegramLoginModal() {
                   className="w-full pl-12 pr-4 py-3.5 bg-slate-100 dark:bg-slate-800 border-none rounded-xl focus:ring-2 focus:ring-blue-500 text-slate-900 dark:text-white transition-all outline-none"
                   required
                 />
+                <p className="text-[10px] text-slate-400 mt-1 ml-1">
+                  Include country code (e.g., +880 for Bangladesh)
+                </p>
               </div>
             ) : (
               <div className="relative">
