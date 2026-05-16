@@ -36,8 +36,12 @@ export function LoginBridge({ title, description, icon = 'telegram' }: LoginBrid
         );
       default:
         return (
-          <div className={`${containerClass} bg-blue-500 rotate-3`}>
-            <Send className={iconClass} />
+          <div className={`${containerClass} overflow-hidden bg-white rotate-3`}>
+            <img 
+              src="/3d-telegram-paper-airplane-icon.jpg" 
+              alt="Local Drive Logo" 
+              className="w-full h-full object-cover"
+            />
           </div>
         );
     }
@@ -56,9 +60,7 @@ export function LoginBridge({ title, description, icon = 'telegram' }: LoginBrid
       >
         Connect Telegram Account
       </button>
-      <p className="mt-8 text-xs text-slate-400 font-bold uppercase tracking-widest leading-loose">
-        Powered by <span className="text-blue-500">CloudGram MTProto</span> Bridge
-      </p>
+
     </div>
   );
 }

@@ -7,7 +7,8 @@ import {
   FileSpreadsheet, 
   Video,
   LayoutGrid,
-  Check
+  Check,
+  Play
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DriveItem, useDrive } from '../contexts/DriveContext';
@@ -30,6 +31,8 @@ export function DriveItemCard({ item, view, activeMenu, setActiveMenu, trashed }
   const isSelectionActive = selectedIds.length > 0;
   const isMaterial3 = settings.uiTheme === 'Material 3';
   const isItemTrashed = trashed || item.trashed;
+  const sessionString = localStorage.getItem("tgSession") || "";
+  const [imageError, setImageError] = React.useState(false);
 
   const onLongPress = () => {
     if (!isSelectionActive) {
@@ -175,8 +178,19 @@ export function DriveItemCard({ item, view, activeMenu, setActiveMenu, trashed }
             layoutId={`preview-${item.id}`}
             className="h-40 w-full bg-slate-100 dark:bg-slate-800 overflow-hidden border-b border-white/60 dark:border-white/5 relative flex items-center justify-center shrink-0 rounded-t-xl"
           >
-            {item.type === 'image' && item.imageUrl && (
-              <img src={item.imageUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+            {item.type === 'image' && (
+              !imageError ? (
+                <img 
+                  src={`/api/tg/download/${item.id}?session=${sessionString}&thumb=1`} 
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                  onError={() => setImageError(true)}
+                  alt={item.name}
+                />
+              ) : (
+                <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                  <ImageIcon className="w-8 h-8 text-red-500" />
+                </div>
+              )
             )}
             {(item.type === 'document' || item.type === 'pdf') && (
               <div className="w-full h-full bg-white/50 dark:bg-slate-900/50 p-6 flex flex-col justify-center text-slate-800 dark:text-slate-100">
@@ -189,9 +203,24 @@ export function DriveItemCard({ item, view, activeMenu, setActiveMenu, trashed }
               <LayoutGrid className="w-16 h-16 text-emerald-400 opacity-60 group-hover:scale-110 transition-transform duration-300" />
             )}
             {item.type === 'video' && (
-              <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300 group-hover:bg-red-500/20">
-                <Video className="w-8 h-8 text-red-500" fill="currentColor" />
-              </div>
+              !imageError ? (
+                <div className="relative w-full h-full flex items-center justify-center group-hover:scale-105 transition-transform duration-500">
+                  <img 
+                    src={`/api/tg/download/${item.id}?session=${sessionString}&thumb=1`}
+                    className="absolute inset-0 w-full h-full object-cover"
+                    onError={() => setImageError(true)}
+                    alt={item.name}
+                  />
+                  <div className="absolute inset-0 bg-black/20" />
+                  <div className="z-10 w-12 h-12 bg-black/50 text-white rounded-full flex items-center justify-center backdrop-blur-sm border border-white/20">
+                    <Play className="w-5 h-5 ml-1" fill="currentColor" />
+                  </div>
+                </div>
+              ) : (
+                <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300 group-hover:bg-red-500/20">
+                  <Video className="w-8 h-8 text-red-500" fill="currentColor" />
+                </div>
+              )
             )}
           </motion.div>
           <div className="p-4 flex items-start gap-3 flex-1 min-w-0">

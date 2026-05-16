@@ -16,11 +16,13 @@ import { useDrive } from './contexts/DriveContext';
 import { MediaViewer } from './components/MediaViewer';
 import { MoveToModal } from './components/MoveToModal';
 import { TelegramLoginModal } from './components/TelegramLoginModal';
+import { ManageAccountModal } from './components/ManageAccountModal';
 
 export default function App() {
   const { currentPage, setCurrentPage, currentFolderId, mediaItem, viewMedia, movingItem, setMovingItem, settings } = useDrive();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isManageAccountOpen, setIsManageAccountOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
@@ -209,22 +211,18 @@ export default function App() {
     <div className="flex h-screen bg-transparent overflow-hidden transition-all duration-500 ease-in-out" onClick={handleMainClick}>
       {/* Sidebar Overlay for Mobile */}
       {isMobile && isSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[90] transition-opacity"
-          onClick={() => setIsSidebarOpen(false)}
-        />
+        <div className="fixed inset-0 bg-black/40 z-[90]" onClick={() => setIsSidebarOpen(false)} />
       )}
 
       {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-[100] transition-transform duration-300 lg:translate-x-0 ${isMobile && !isSidebarOpen ? '-translate-x-full' : 'translate-x-0'}`}>
-        <Sidebar currentPage={currentPage} onChangePage={setCurrentPage} />
-      </div>
+      <Sidebar currentPage={currentPage} onChangePage={setCurrentPage} isOpen={isSidebarOpen} />
 
       {/* Main Content Area */}
-      <div className={`flex-1 flex flex-col min-w-0 transition-all duration-500 pt-[72px] ${!isMobile ? 'pl-[280px]' : 'pl-0'} relative z-10`} style={{ backgroundColor: settings.backgroundColor ? 'transparent' : 'var(--main-bg, transparent)' }}>
+      <div className={`flex-1 flex flex-col min-w-0 transition-all duration-500 pt-[72px] relative z-10`} style={{ backgroundColor: settings.backgroundColor ? 'transparent' : 'var(--main-bg, transparent)' }}>
         <Header 
           onToggleProfile={() => setIsProfileOpen(!isProfileOpen)}
           onOpenSettings={() => setIsSettingsOpen(true)}
+          onOpenManageAccount={() => setIsManageAccountOpen(true)}
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
           profileOpen={isProfileOpen}
         />
@@ -263,6 +261,10 @@ export default function App() {
       <MoveToModal 
         item={movingItem} 
         onClose={() => setMovingItem(null)} 
+      />
+      <ManageAccountModal 
+        isOpen={isManageAccountOpen}
+        onClose={() => setIsManageAccountOpen(false)}
       />
       <TelegramLoginModal />
     </div>

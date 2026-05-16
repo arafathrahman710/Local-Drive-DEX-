@@ -13,6 +13,7 @@ import { useDrive } from '../contexts/DriveContext';
 
 export function About() {
   const { setIsFeatureShowcaseOpen } = useDrive();
+  const [reportText, setReportText] = useState('');
 
   return (
     <div className="p-8 max-w-4xl mx-auto space-y-10 pb-20">
@@ -48,13 +49,13 @@ export function About() {
             <a href="mailto:arafathrahman711@gmail.com" className="w-10 h-10 rounded-full bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-rose-500 dark:hover:text-rose-400 transition-all shadow-sm">
               <Mail className="w-5 h-5" />
             </a>
-            <a href="#" className="w-10 h-10 rounded-full bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-pink-500 transition-all shadow-sm">
+            <a href="https://www.instagram.com/arafath_rahman_/" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-pink-500 transition-all shadow-sm">
               <Instagram className="w-5 h-5" />
             </a>
-            <a href="#" className="w-10 h-10 rounded-full bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-blue-500 transition-all shadow-sm">
+            <a href="https://www.facebook.com/arafath.rahman.57956" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-blue-500 transition-all shadow-sm">
               <Facebook className="w-5 h-5" />
             </a>
-            <a href="#" className="w-10 h-10 rounded-full bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-sky-500 transition-all shadow-sm">
+            <a href="https://t.me/localdrivecommunity" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-sky-500 transition-all shadow-sm">
               <Send className="w-5 h-5" />
             </a>
             <a href="#" className="w-10 h-10 rounded-full bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-red-500 transition-all shadow-sm">
@@ -68,6 +69,30 @@ export function About() {
           className="mt-2 w-full py-3.5 bg-gradient-to-r from-slate-900 to-slate-800 dark:from-white dark:to-slate-200 text-white dark:text-slate-900 rounded-xl font-bold text-sm hover:shadow-lg hover:-translate-y-0.5 transition-all outline-none"
         >
           Learn about features
+        </button>
+      </motion.div>
+
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="bg-white/80 border border-slate-200 dark:bg-[#2C2C2E]/80 dark:border-white/5 p-8 rounded-3xl flex flex-col gap-4 backdrop-blur-xl shadow-sm"
+      >
+        <h5 className="text-sm font-semibold text-slate-800 dark:text-slate-200 uppercase tracking-widest">Report Bugs</h5>
+        <textarea
+          value={reportText}
+          onChange={(e) => setReportText(e.target.value)}
+          placeholder="Describe the bug you found (max 100 words)..."
+          className="w-full p-4 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-primary outline-none transition-all resize-none h-32"
+        />
+        <button 
+          onClick={() => {
+            const mailto = `mailto:arafathrahman710@gmail.com?subject=Bug Report&body=${encodeURIComponent(reportText)}`;
+            window.location.href = mailto;
+          }}
+          className="w-full py-3 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary/90 transition-all active:scale-95"
+        >
+          Send Report
         </button>
       </motion.div>
     </div>

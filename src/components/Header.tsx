@@ -9,6 +9,7 @@ import { useDrive } from '../contexts/DriveContext';
 interface HeaderProps {
   onOpenSettings: () => void;
   onToggleProfile: () => void;
+  onOpenManageAccount: () => void;
   onToggleSidebar?: () => void;
   profileOpen: boolean;
 }
@@ -23,8 +24,8 @@ const DUMMY_SEARCH_RESULTS = [
   { id: 'f4', title: 'Product_Demo_Final.mp4', type: 'video' },
 ];
 
-export function Header({ onOpenSettings, onToggleProfile, onToggleSidebar, profileOpen }: HeaderProps) {
-  const { settings } = useDrive();
+export function Header({ onOpenSettings, onToggleProfile, onOpenManageAccount, onToggleSidebar, profileOpen }: HeaderProps) {
+  const { settings, currentPage, currentFolderId, items, isTgLoggedIn } = useDrive();
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isSearchHovered, setIsSearchHovered] = useState(false);
@@ -32,6 +33,18 @@ export function Header({ onOpenSettings, onToggleProfile, onToggleSidebar, profi
   const [isActuallyExpanded, setIsActuallyExpanded] = useState(false);
   const [isSettingsPopoverOpen, setIsSettingsPopoverOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+  
+  const [customPhoto, setCustomPhoto] = useState<string | null>(localStorage.getItem("customProfilePic"));
+
+  useEffect(() => {
+    const syncProfile = () => {
+      setCustomPhoto(localStorage.getItem("customProfilePic"));
+    };
+    window.addEventListener('profilePicUpdated', syncProfile);
+    return () => {
+      window.removeEventListener('profilePicUpdated', syncProfile);
+    };
+  }, []);
   
   const isMaterial3 = settings.uiTheme === 'Material 3';
 
@@ -96,6 +109,28 @@ export function Header({ onOpenSettings, onToggleProfile, onToggleSidebar, profi
     }
   };
 
+  const getPageTitle = () => {
+    if (currentFolderId) {
+      const folder = items.find(i => i.id === currentFolderId);
+      if (folder) return folder.name;
+    }
+
+    const titles: Record<string, string> = {
+      'home': 'Home',
+      'my-drive': 'My Drive',
+      'computers': 'Computers',
+      'shared': 'Shared with me',
+      'recent': 'Recent',
+      'starred': 'Starred',
+      'spam': 'Spam',
+      'trash': 'Trash',
+      'system': 'System',
+      'about': 'About',
+      'customization': 'Customization'
+    };
+    return titles[currentPage] || 'Drive';
+  };
+
   const getIcon = (item: any) => {
     switch (item.type) {
       case 'setting': return <SettingsIcon className="w-4 h-4 text-slate-400" />;
@@ -126,104 +161,106 @@ export function Header({ onOpenSettings, onToggleProfile, onToggleSidebar, profi
           </button>
         )}
         {/* Placeholder title for mobile if needed, or just left space */}
-        {!isActuallyExpanded && <span className="font-bold text-slate-800 dark:text-slate-100 lg:hidden">Drive</span>}
+        {!isActuallyExpanded && <span className="font-bold text-slate-800 dark:text-slate-100">{getPageTitle()}</span>}
       </div>
 
       <div className="flex-1 flex items-center justify-end gap-2 sm:gap-3" ref={searchRef}>
-        <div 
-          className={cn(
-            "relative flex items-center justify-end h-full transition-all duration-500",
-            isSearchExpanded ? 'flex-1 max-w-[720px]' : (isMaterial3 ? 'w-12' : 'w-10')
-          )}
-          onMouseEnter={() => setIsSearchHovered(true)}
-          onMouseLeave={() => setIsSearchHovered(false)}
-        >
+        {isTgLoggedIn && (
           <div 
             className={cn(
-              "relative flex items-center h-11 transition-all duration-500 origin-right overflow-hidden",
-              isAnimatingBlob ? 'animate-blob' : '',
-              isMaterial3 ? "h-14 rounded-[28px]" : "h-11 rounded-full",
-              isSearchExpanded 
-                ? (isMaterial3 
-                    ? 'w-full bg-[#F3F3F3] dark:bg-[#2C2C2E] z-30 ring-2 ring-primary/20 border-none shadow-[0_4px_12px_rgba(0,0,0,0.05)]' 
-                    : 'w-full bg-white dark:bg-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.08)] border border-slate-200 dark:border-white/10 ring-4 ring-primary/5 backdrop-blur-md z-30'
-                  )
-                : (isMaterial3 
-                    ? 'w-14 bg-[#F3F3F3] dark:bg-[#2C2C2E] border border-transparent hover:bg-slate-200 dark:hover:bg-white/10 cursor-pointer shadow-sm' 
-                    : 'w-10 bg-transparent border border-transparent hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer'
-                  )
+              "relative flex items-center justify-end h-full transition-all duration-500",
+              isSearchExpanded ? 'flex-1 max-w-[720px]' : (isMaterial3 ? 'w-12' : 'w-10')
             )}
-             style={{
-               transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)'
-             }}
+            onMouseEnter={() => setIsSearchHovered(true)}
+            onMouseLeave={() => setIsSearchHovered(false)}
           >
             <div 
               className={cn(
-                "absolute left-0 flex items-center justify-center pointer-events-none transition-colors",
-                isMaterial3 ? "w-14 h-14" : "w-10 h-10",
-                isSearchExpanded ? 'text-primary' : 'text-slate-600 dark:text-slate-400'
+                "relative flex items-center h-11 transition-all duration-500 origin-right overflow-hidden",
+                isAnimatingBlob ? 'animate-blob' : '',
+                isMaterial3 ? "h-14 rounded-[28px]" : "h-11 rounded-full",
+                isSearchExpanded 
+                  ? (isMaterial3 
+                      ? 'w-full bg-[#F3F3F3] dark:bg-[#2C2C2E] z-30 ring-2 ring-primary/20 border-none shadow-[0_4px_12px_rgba(0,0,0,0.05)]' 
+                      : 'w-full bg-white dark:bg-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.08)] border border-slate-200 dark:border-white/10 ring-4 ring-primary/5 backdrop-blur-md z-30'
+                    )
+                  : (isMaterial3 
+                      ? 'w-14 bg-[#F3F3F3] dark:bg-[#2C2C2E] border border-transparent hover:bg-slate-200 dark:hover:bg-white/10 cursor-pointer shadow-sm' 
+                      : 'w-10 bg-transparent border border-transparent hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer'
+                    )
               )}
+               style={{
+                 transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)'
+               }}
             >
-              <Search className={cn("transition-transform duration-500", isMaterial3 ? "w-6 h-6" : "w-5 h-5", isAnimatingBlob ? 'scale-110 rotate-12' : 'scale-100')} />
+              <div 
+                className={cn(
+                  "absolute left-0 flex items-center justify-center pointer-events-none transition-colors",
+                  isMaterial3 ? "w-14 h-14" : "w-10 h-10",
+                  isSearchExpanded ? 'text-primary' : 'text-slate-600 dark:text-slate-400'
+                )}
+              >
+                <Search className={cn("transition-transform duration-500", isMaterial3 ? "w-6 h-6" : "w-5 h-5", isAnimatingBlob ? 'scale-110 rotate-12' : 'scale-100')} />
+              </div>
+              <input 
+                type="text" 
+                placeholder="Search Cloud"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => {
+                  setIsSearchFocused(true);
+                  if (!isActuallyExpanded) startBlobSequence();
+                }}
+                onBlur={() => {
+                  if (!isSearchHovered && searchQuery.length === 0) {
+                    setIsSearchFocused(false);
+                    endBlobSequence();
+                  }
+                }}
+                className={cn(
+                  "w-full h-full bg-transparent border-none focus:ring-0 text-slate-800 dark:text-slate-100 placeholder:text-slate-500 outline-none transition-all duration-300",
+                  isMaterial3 ? "text-base font-semibold pl-14 pr-4" : "text-sm pl-10 pr-4",
+                  isSearchExpanded ? 'opacity-100' : 'opacity-0 cursor-pointer'
+                )}
+              />
             </div>
-            <input 
-              type="text" 
-              placeholder="Search Cloud"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onFocus={() => {
-                setIsSearchFocused(true);
-                if (!isActuallyExpanded) startBlobSequence();
-              }}
-              onBlur={() => {
-                if (!isSearchHovered && searchQuery.length === 0) {
-                  setIsSearchFocused(false);
-                  endBlobSequence();
-                }
-              }}
-              className={cn(
-                "w-full h-full bg-transparent border-none focus:ring-0 text-slate-800 dark:text-slate-100 placeholder:text-slate-500 outline-none transition-all duration-300",
-                isMaterial3 ? "text-base font-semibold pl-14 pr-4" : "text-sm pl-10 pr-4",
-                isSearchExpanded ? 'opacity-100' : 'opacity-0 cursor-pointer'
-              )}
-            />
-          </div>
-          
-          {/* Search Results Dropdown */}
-          <div className={cn(
-            "absolute top-16 right-0 w-full transition-all duration-300 origin-top",
-            isMaterial3 
-              ? "bg-white dark:bg-[#1C1B1F] border border-slate-200/60 dark:border-white/10 rounded-[28px] shadow-[0_24px_54px_rgba(0,0,0,0.15)] overflow-hidden z-20 duration-500"
-              : "sm:w-[500px] bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200/60 dark:border-white/10 rounded-xl shadow-[0_16px_40px_rgba(0,0,0,0.12)] overflow-hidden z-20",
-            isSearchFocused && searchQuery ? 'opacity-100 translate-y-2 pointer-events-auto' : 'opacity-0 translate-y-0 pointer-events-none'
-          )}>
-            <div className="max-h-96 overflow-y-auto">
-              {filteredResults.length > 0 ? (
-                <ul className="py-2">
-                  {filteredResults.map(result => (
-                    <li key={result.id}>
-                      <button 
-                        onClick={() => handleResultClick(result)}
-                        className="w-full text-left px-4 py-3 hover:bg-black/5 dark:hover:bg-white/5 flex items-center gap-3 transition-colors text-slate-800 dark:text-slate-200"
-                      >
-                        {getIcon(result)}
-                        <div>
-                          <div className="text-sm font-medium text-slate-800 dark:text-slate-100">{result.title}</div>
-                          <div className="text-xs text-slate-500 capitalize">{result.type}</div>
-                        </div>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <div className="p-8 text-center text-slate-500">
-                  <Search className="w-8 h-8 mx-auto mb-2 opacity-20" />
-                  No results found for "{searchQuery}"
-                </div>
-              )}
+            
+            {/* Search Results Dropdown */}
+            <div className={cn(
+              "absolute top-16 right-0 w-full transition-all duration-300 origin-top",
+              isMaterial3 
+                ? "bg-white dark:bg-[#1C1B1F] border border-slate-200/60 dark:border-white/10 rounded-[28px] shadow-[0_24px_54px_rgba(0,0,0,0.15)] overflow-hidden z-20 duration-500"
+                : "sm:w-[500px] bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200/60 dark:border-white/10 rounded-xl shadow-[0_16px_40px_rgba(0,0,0,0.12)] overflow-hidden z-20",
+              isSearchFocused && searchQuery ? 'opacity-100 translate-y-2 pointer-events-auto' : 'opacity-0 translate-y-0 pointer-events-none'
+            )}>
+              <div className="max-h-96 overflow-y-auto">
+                {filteredResults.length > 0 ? (
+                  <ul className="py-2">
+                    {filteredResults.map(result => (
+                      <li key={result.id}>
+                        <button 
+                          onClick={() => handleResultClick(result)}
+                          className="w-full text-left px-4 py-3 hover:bg-black/5 dark:hover:bg-white/5 flex items-center gap-3 transition-colors text-slate-800 dark:text-slate-200"
+                        >
+                          {getIcon(result)}
+                          <div>
+                            <div className="text-sm font-medium text-slate-800 dark:text-slate-100">{result.title}</div>
+                            <div className="text-xs text-slate-500 capitalize">{result.type}</div>
+                          </div>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="p-8 text-center text-slate-500">
+                    <Search className="w-8 h-8 mx-auto mb-2 opacity-20" />
+                    No results found for "{searchQuery}"
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         <div className="relative">
           <button 
@@ -258,17 +295,24 @@ export function Header({ onOpenSettings, onToggleProfile, onToggleSidebar, profi
             }}
             className={`w-10 h-10 rounded-full border-2 ${profileOpen ? 'border-primary' : 'border-white'} shadow-sm overflow-hidden focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface cursor-pointer active:scale-95 transition-all`}
           >
-            <img 
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuBNrVMv0RJTMndQl2MRAQBrEv37Yd74iBH4Z6297ifcGqVHRzwnEAuRaxXVakQJmKzHQLc84cwyZl_PH7vtsVcAZk1GhjVtX2xcs3_ZXe16nb0S71zYh4vczuGq_OmB8-JqqImhwfNH4yKUSrPxhJK6qFHQrWq2IhiTz0VcIgP4uWABaPDMq-1lAPKKgcXl2UIqnBYu1hdXeVH8boIHdZLD4u8TA6VvMlMuKvnNc9RP1aJxFLd7hyUCIl3P7CiuOzLSdv69pN1rnRkS" 
-              alt="User profile" 
-              className="w-full h-full object-cover"
-            />
+            {customPhoto ? (
+              <img 
+                src={customPhoto} 
+                alt="User profile" 
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full bg-slate-100 dark:bg-white/5 flex items-center justify-center">
+                <Cloud className="w-5 h-5 text-primary" />
+              </div>
+            )}
           </button>
-          <div className="absolute right-0 top-full mt-2" style={{ zIndex: 99999 }}>
+          <div className="absolute right-0 max-w-[calc(100vw-16px)] sm:right-0 top-full mt-2" style={{ zIndex: 99999 }}>
             <ProfilePopover 
               isOpen={profileOpen} 
               onClose={() => onToggleProfile()} 
               onOpenSettings={() => onOpenSettings()}
+              onOpenManageAccount={() => onOpenManageAccount()}
             />
           </div>
         </div>

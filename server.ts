@@ -82,6 +82,13 @@ async function createServer() {
   }, 60 * 1000);
 
   // Helper to get Telegram client for a session
+  app.use((req, res, next) => {
+    if (req.path.includes('upload')) {
+       console.log('UPLOAD REQUEST:', req.method, req.path);
+    }
+    next();
+  });
+  
   const getClient = async (sessionString: string = "") => {
     if (sessionString && clientCache[sessionString]) {
       console.log(`[getClient] Using cached client for session starting with ${sessionString.substring(0, 10)}...`);
@@ -208,6 +215,42 @@ async function createServer() {
       res.json({ loggedIn: false });
     }
     // We don't disconnect anymore because we cache the client
+  });
+
+  app.get("/api/tg/ping", async (req, res) => {
+    const sessionString = getSessionString(req);
+    if (!sessionString) return res.json({ ok: false, reason: "no_session" });
+
+    let client;
+    try {
+      client = new TelegramClient(new StringSession(sessionString), API_ID, API_HASH, {
+        connectionRetries: 1,
+      });
+      const timer = setTimeout(() => {
+        client?.disconnect();
+      }, 5000);
+
+      await client.connect();
+      await client.getMe();
+      clearTimeout(timer);
+      client.disconnect();
+
+      res.json({ ok: true });
+    } catch (error: any) {
+      if (client) client.disconnect();
+      const msg = error.message || String(error);
+      if (
+        msg.includes("AUTH_KEY_UNREGISTERED") || 
+        msg.includes("SESSION_REVOKED") || 
+        msg.includes("USER_DEACTIVATED") ||
+        error.status === 401 ||
+        msg.includes("401") ||
+        error.code === 401
+      ) {
+        return res.json({ ok: false, reason: "session_expired" });
+      }
+      res.json({ ok: true });
+    }
   });
 
   app.post("/api/tg/send-code", async (req, res) => {
@@ -504,8 +547,124 @@ async function createServer() {
     }
   });
 
-  // Updated Upload for Vercel
   const upload = multer({ dest: uploadsDir });
+
+  // Chunked upload to bypass proxy limits
+  console.log("Registering upload-chunk route...");
+  app.post("/api/tg/upload-chunk", upload.single("chunk"), async (req, res) => {
+    req.setTimeout(0);
+    res.setTimeout(0);
+    
+    const sessionString = getSessionString(req);
+    if (!sessionString) return res.status(401).json({ error: "Not logged in" });
+    if (!req.file) return res.status(400).json({ error: "No chunk provided" });
+
+    const { uploadId, chunkIndex, totalChunks, fileName, mimeType } = req.body;
+    
+    if (!uploadId || chunkIndex === undefined || !totalChunks || !fileName) {
+       if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+       return res.status(400).json({ error: "Missing chunk metadata" });
+    }
+
+    const chunkIdx = parseInt(chunkIndex, 10);
+    const total = parseInt(totalChunks, 10);
+    
+    // Safety check for filename
+    let originalName = fileName.replace(/[^a-zA-Z0-9.\-_]/g, "_");
+    if (!originalName.includes(".")) {
+      if (mimeType && mimeType.includes("video")) originalName += ".mp4";
+      else if (mimeType && mimeType.includes("audio")) originalName += ".mp3";
+      else if (mimeType && mimeType.includes("image")) originalName += ".jpg";
+    }
+
+    const assembledFilePath = path.join(uploadsDir, `assembled_${uploadId}_${originalName}`);
+    
+    try {
+      // Append chunk to the final file
+      const chunkData = fs.readFileSync(req.file.path);
+      fs.appendFileSync(assembledFilePath, chunkData);
+      fs.unlinkSync(req.file.path); // cleanup chunk
+
+      if (chunkIdx === total - 1) {
+        // Last chunk, now upload to Telegram
+        let client = await getClient(sessionString);
+        let sentMsg;
+        let uploadRetries = 0;
+
+        res.setHeader("Content-Type", "application/json");
+        res.setHeader("X-Accel-Buffering", "no");
+        res.status(200);
+        const keepAliveInterval = setInterval(() => {
+          res.write(" "); 
+        }, 15000);
+
+        let successData = null;
+        let errorData = null;
+
+        while (uploadRetries < 5) {
+          try {
+            console.log(`[Upload] Sending assembled file to TG: ${originalName} (attempt ${uploadRetries + 1})`);
+            sentMsg = await client.sendFile("me", {
+              file: assembledFilePath,
+              caption: "#CloudGram",
+              forceDocument: true,
+              workers: 4 - Math.min(uploadRetries, 3),
+              attributes: [
+                new Api.DocumentAttributeFilename({
+                  fileName: fileName,
+                }),
+              ],
+            });
+            console.log(`[Upload] Success! Message ID: ${sentMsg.id}`);
+            successData = { success: true, fileId: sentMsg.id.toString() };
+            break; 
+          } catch (err: any) {
+            uploadRetries++;
+            console.error(`[Upload] attempt ${uploadRetries} failed: ${err.message}`);
+            if (handleTgError(err, sessionString) || (err.message && err.message.includes("TIMEOUT"))) {
+              if (uploadRetries >= 5) {
+                 errorData = { error: err.message || "Failed after 5 retries" };
+                 break;
+              }
+              client = await getClient(sessionString);
+            } else {
+              errorData = { error: err.message };
+              break;
+            }
+          }
+        }
+        
+        clearInterval(keepAliveInterval);
+        if (fs.existsSync(assembledFilePath)) fs.unlinkSync(assembledFilePath);
+        
+        if (errorData) {
+           res.write(JSON.stringify(errorData));
+           res.end();
+        } else if (successData) {
+           res.write(JSON.stringify(successData));
+           res.end();
+        } else {
+           res.write(JSON.stringify({ error: "Unknown upload error" }));
+           res.end();
+        }
+      } else {
+        // Not the last chunk, just acknowledge receipt
+        res.json({ success: true, message: `Chunk ${chunkIdx + 1}/${total} received` });
+      }
+    } catch (e: any) {
+      if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+      if (fs.existsSync(assembledFilePath)) fs.unlinkSync(assembledFilePath);
+      
+      if (!res.headersSent) {
+        res.status(500).json({ error: e.message });
+      } else {
+         res.write(JSON.stringify({ error: e.message }));
+         res.end();
+      }
+    }
+  });
+
+  // Updated Upload for Vercel
   app.post("/api/tg/upload", upload.single("file"), async (req, res) => {
     req.setTimeout(0);
     res.setTimeout(0);
@@ -706,6 +865,69 @@ async function createServer() {
       const sanitizedFileName = fileName.replace(/[/\\?%*:|"<>\s]/g, "_");
       const encodedFileName = encodeURIComponent(fileName);
 
+      const isThumb = req.query.thumb === "1";
+      if (isThumb) {
+        const isImage = mimeType.startsWith("image/");
+        const isVideo = mimeType.startsWith("video/");
+        
+        if (isImage) {
+          let downloaded = 0;
+          const maxThumbSize = 50 * 1024; // 50KB max
+          res.setHeader("Content-Type", mimeType);
+          res.setHeader("X-Accel-Buffering", "no");
+          res.status(200);
+          
+          try {
+            const iter = client.iterDownload({
+              file: media,
+              offset: bigInt(0),
+              requestSize: 64 * 1024,
+            });
+            for await (const chunk of iter) {
+              const bufferChunk = chunk as Buffer;
+              if (bufferChunk.length > 0) {
+                res.write(bufferChunk);
+                downloaded += bufferChunk.length;
+              }
+              if (downloaded >= maxThumbSize) {
+                break;
+              }
+            }
+            res.end();
+            return;
+          } catch(err) {
+             console.error("[Download] failed to fetch image thumbnail", err);
+             if (!res.headersSent) res.status(500).json({ error: "Failed to download thumb" });
+             return;
+          }
+        } else if (isVideo) {
+          if (media instanceof Api.MessageMediaDocument && media.document) {
+            const doc = media.document as Api.Document;
+            const thumbs = doc.thumbs;
+            
+            if (thumbs && thumbs.length > 0) {
+              const smallestThumb = thumbs[0];
+              const thumbType = (smallestThumb as any).type;
+              
+              try {
+                const thumbData = await client.downloadMedia(messages[0], { thumb: smallestThumb });
+                if (thumbData) {
+                  res.setHeader("Content-Type", "image/jpeg");
+                  res.setHeader("Content-Length", thumbData.length.toString());
+                  res.status(200);
+                  res.end(thumbData);
+                  return;
+                }
+              } catch(err) {
+                 console.error("[Download] error fetching video thumbnail", err);
+              }
+            }
+          }
+          if (!res.headersSent) res.status(404).json({ error: "No video thumbnail found" });
+          return;
+        }
+      }
+
       res.setHeader("Content-Type", mimeType);
       res.setHeader("X-Content-Type-Options", "nosniff");
       res.setHeader(
@@ -775,7 +997,7 @@ async function createServer() {
   });
 
   // --- VITE MIDDLEWARE ---
-  if (!isVercel && process.env.NODE_ENV !== "production") {
+  if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
@@ -793,7 +1015,7 @@ async function createServer() {
 }
 
 // Start local server if not on Vercel
-if (!isVercel) {
+if (process.env.NODE_ENV !== "production") {
   createServer().then((app) => {
     const LOCAL_PORT = 3000;
     app.listen(LOCAL_PORT, "0.0.0.0", () => {

@@ -579,6 +579,35 @@ export function DriveProvider({ children }: { children: ReactNode }) {
     setTimeout(() => setToastMessage(null), 2500);
   };
 
+  useEffect(() => {
+    let intervalId: any;
+
+    const pingTg = async () => {
+      const sessionString = localStorage.getItem("tgSession");
+      if (!sessionString) return;
+      try {
+        const res = await fetch("/api/tg/ping", {
+          headers: { Authorization: `Bearer ${sessionString}` },
+        });
+        const data = await res.json();
+        if (!data.ok) {
+          logoutTg();
+          showToast("Session terminated from another device");
+        }
+      } catch (err) {
+        console.error("Ping error", err);
+      }
+    };
+
+    if (isTgLoggedIn) {
+      intervalId = setInterval(pingTg, 30000);
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [isTgLoggedIn]);
+
   const updatePageAndHistory = (page: string) => {
     // Before moving to new page, save current state to history
     setNavigationHistory((prev) => [
@@ -643,77 +672,100 @@ export function DriveProvider({ children }: { children: ReactNode }) {
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      const formData = new FormData();
-      formData.append("file", file);
+      const CHUNK_SIZE = 512 * 1024; // 512 KB chunks
+      const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+      const uploadId = Date.now().toString() + "_" + Math.random().toString(36).substr(2, 9);
+      
+      let uploadSuccess = false;
+      let fileId = null;
+      let finalData = null;
 
       try {
-        const res = await fetch("/api/tg/upload", {
-          method: "POST",
-          headers: sessionString
-            ? { Authorization: `Bearer ${sessionString}` }
-            : {},
-          body: formData,
-        });
+        for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+          const start = chunkIndex * CHUNK_SIZE;
+          const end = Math.min(start + CHUNK_SIZE, file.size);
+          const chunk = file.slice(start, end);
 
-        if (res.ok) {
+          const formData = new FormData();
+          formData.append("chunk", chunk);
+          formData.append("uploadId", uploadId);
+          formData.append("chunkIndex", chunkIndex.toString());
+          formData.append("totalChunks", totalChunks.toString());
+          formData.append("fileName", file.name);
+          formData.append("mimeType", file.type || "application/octet-stream");
+
+          const res = await fetch("/api/tg/upload-chunk", {
+            method: "POST",
+            headers: sessionString
+              ? { Authorization: `Bearer ${sessionString}` }
+              : {},
+            body: formData,
+          });
+
+          if (!res.ok) {
+            const text = await res.text();
+            let errorMsg = `HTTP Error ${res.status}`;
+            try {
+              const errorData = JSON.parse(text);
+              if (errorData.error) errorMsg = errorData.error;
+            } catch (e) {
+              if (res.status === 413) errorMsg = "Chunk is too large for the network proxy";
+              else if (res.status === 504) errorMsg = "Server connection timed out";
+              else errorMsg = `Server returned invalid data (HTTP ${res.status})`;
+            }
+            throw new Error(errorMsg);
+          }
+
           const text = await res.text();
           let data;
           try {
             data = JSON.parse(text);
           } catch (e) {
-            console.error(`Failed to parse json on success for ${file.name}:`, e);
-            showToast(`Failed: ${file.name} - Server returned invalid data`);
-            continue;
+            throw new Error("Server returned invalid JSON data");
           }
+
           if (data.error) {
-            console.error(`Upload failed for ${file.name}:`, data.error);
-            showToast(`Failed: ${file.name} - ${data.error}`);
-          } else if (data.fileId) {
-            updateItems((prev) => {
-              const parentFolder = currentFolderIdRef.current ? prev.find(i => i.id === currentFolderIdRef.current) : null;
-              const newLocation = parentFolder ? `My Drive > ${parentFolder.name}` : "My Drive";
-              const newItems = [
-                ...prev,
-                {
-                  id: data.fileId,
-                  name: file.name,
-                  isFolder: false,
-                  parentId: currentFolderIdRef.current,
-                  size: file.size.toString(),
-                  date: new Date().toISOString(),
-                  modified: new Date().toLocaleDateString(),
-                  owner: "me",
-                  location: newLocation,
-                  trashed: false,
-                  spam: false,
-                  type: mapMimeToType(file.type),
-                },
-              ];
-              return newItems;
-            });
-            uploadedCount++;
+            throw new Error(data.error);
           }
-        } else {
-          const text = await res.text();
-          let errorMsg = `HTTP Error ${res.status}`;
-          try {
-            const errorData = JSON.parse(text);
-            if (errorData.error) errorMsg = errorData.error;
-          } catch (e) {
-            if (res.status === 413) {
-              errorMsg = "File is too large for the network proxy";
-            } else if (res.status === 504) {
-              errorMsg = "Server connection timed out";
-            } else {
-              errorMsg = `Server returned invalid data (HTTP ${res.status})`;
+
+          if (chunkIndex === totalChunks - 1) {
+            // Final chunk finished
+            if (data.fileId) {
+               uploadSuccess = true;
+               fileId = data.fileId;
+               finalData = data;
             }
           }
-          console.error(`Upload failed for ${file.name}:`, errorMsg, text);
-          showToast(`Failed: ${file.name} - ${errorMsg}`);
+        }
+
+        if (uploadSuccess && fileId) {
+          updateItems((prev) => {
+            const parentFolder = currentFolderIdRef.current ? prev.find(i => i.id === currentFolderIdRef.current) : null;
+            const newLocation = parentFolder ? `My Drive > ${parentFolder.name}` : "My Drive";
+            const newItems = [
+              ...prev,
+              {
+                id: fileId,
+                name: file.name,
+                isFolder: false,
+                parentId: currentFolderIdRef.current,
+                size: file.size.toString(),
+                date: new Date().toISOString(),
+                modified: new Date().toLocaleDateString(),
+                owner: "me",
+                location: newLocation,
+                trashed: false,
+                spam: false,
+                type: mapMimeToType(file.type),
+              },
+            ];
+            return newItems;
+          });
+          uploadedCount++;
         }
       } catch (e: any) {
         console.error("Network error during upload for ", file.name, e);
-        showToast(`Network error uploading ${file.name}`);
+        showToast(`Failed: ${file.name} - ${e.message}`);
       }
     }
 

@@ -74,7 +74,7 @@ export function Starred() {
         </h2>
         <motion.div 
           layout
-          className={view === 'grid' ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" : "flex flex-col gap-2"}
+          className={view === 'grid' ? "grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-6" : "flex flex-col gap-2"}
         >
           {folders.map(folder => (
             <DriveItemCard 
@@ -95,7 +95,7 @@ export function Starred() {
         </h2>
         <motion.div 
           layout
-          className={view === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" : "flex flex-col gap-2"}
+          className={view === 'grid' ? "grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-6" : "flex flex-col gap-2"}
         >
           {files.map(file => (
             <DriveItemCard 

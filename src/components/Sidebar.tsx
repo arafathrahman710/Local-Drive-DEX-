@@ -26,6 +26,7 @@ import { useDrive } from '../contexts/DriveContext';
 interface SidebarProps {
   currentPage: PageType;
   onChangePage: (page: PageType) => void;
+  isOpen?: boolean;
 }
 
 const NAV_ITEMS = [
@@ -45,7 +46,7 @@ const NAV_ITEMS = [
   { id: 'customization', label: 'Customization', icon: Palette },
 ];
 
-export function Sidebar({ currentPage, onChangePage }: SidebarProps) {
+export function Sidebar({ currentPage, onChangePage, isOpen }: SidebarProps) {
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [createFolderOpen, setCreateFolderOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState('New Folder');
@@ -76,10 +77,19 @@ export function Sidebar({ currentPage, onChangePage }: SidebarProps) {
   };
 
   return (
-    <aside className="fixed left-0 top-0 h-full w-[280px] bg-white dark:bg-slate-900/40 dark:backdrop-blur-[40px] border-r border-slate-200 dark:border-white/5 shadow-sm dark:shadow-[0_8px_16px_rgba(26,115,232,0.02)] flex flex-col z-[60]">
+    <aside className={cn(
+      "h-full w-[280px] bg-white dark:bg-slate-900/40 dark:backdrop-blur-[40px] border-r border-slate-200 dark:border-white/5 shadow-sm dark:shadow-[0_8px_16px_rgba(26,115,232,0.02)] flex flex-col z-[100]",
+      "fixed inset-y-0 left-0 transform transition-transform duration-300",
+      "lg:static lg:translate-x-0",
+      isOpen ? "translate-x-0" : "-translate-x-full"
+    )}>
       <div className="h-[72px] flex items-center gap-4 px-6 shrink-0">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-container to-surface-tint flex items-center justify-center shadow-sm">
-          <Cloud className="text-white w-6 h-6" fill="currentColor" />
+        <div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center shadow-sm">
+          <img 
+            src="/3d-telegram-paper-airplane-icon.jpg" 
+            alt="Local Drive Logo" 
+            className="w-full h-full object-cover"
+          />
         </div>
         <span className="text-xl font-bold text-slate-900 dark:text-slate-100 truncate">Local Drive</span>
       </div>

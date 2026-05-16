@@ -37,10 +37,7 @@ interface Device {
 }
 
 export function Computers() {
-  const [devices, setDevices] = useState<Device[]>([
-    { id: '1', name: "MacBook Pro M3", type: 'pc', status: 'online', folders: ['Work Assets', 'Design System'], os: 'macOS Sonoma', lastSync: '2 min ago' },
-    { id: '2', name: "Galaxy S24 Ultra", type: 'phone', status: 'syncing', folders: ['Camera Uploads'], os: 'Android 14', lastSync: 'Just now' }
-  ]);
+  const [devices, setDevices] = useState<Device[]>([]);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [showConnectModal, setShowConnectModal] = useState<string | null>(null);
   const { goBack, selectedIds, clearSelection, batchMoveToTrash, toggleSelection, settings } = useDrive();
@@ -152,6 +149,12 @@ export function Computers() {
 
       {/* QUICK CONNECT ACTIONS */}
       <div className={cn("grid grid-cols-1 gap-8", isMaterial3 ? "mb-16" : "mb-12")}>
+        <div className="p-4 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 rounded-2xl flex items-center gap-3 border border-yellow-500/20">
+           <span className="text-xl">⚠️</span>
+           <p className="font-medium text-sm">
+             This feature is currently unavailable. We are actively working on it and it will be available in a future update. Stay tuned!
+           </p>
+        </div>
         <motion.button 
           whileHover={isMaterial3 ? { y: -8, scale: 1.01 } : { y: -4 }}
           whileTap={{ scale: 0.99 }}
